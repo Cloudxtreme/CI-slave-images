@@ -1,0 +1,7 @@
+*.bak
+*.pyc
+venv
+vagrant
+segredos
+fabric_collections
+bookshelf/
