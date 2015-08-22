@@ -5,19 +5,6 @@
 # usage:
 #       fab help
 #
-# state is kept locally in a file called state.json, it contains metadata
-# related to the existing EC2 instance.
-#
-# the following environment variables must be set:
-# AWS_AMI
-# AWS_INSTANCE_TYPE
-# AWS_ACCESS_KEY_ID
-# AWS_ACCESS_KEY_FILENAME
-# AWS_ACCESS_KEY_PAIR
-# AWS_ACCESS_REGION
-# AWS_SECRET_ACCESS_KEY
-
-
 import os
 import yaml
 import sys
@@ -40,6 +27,8 @@ from bookshelf.api_v1 import (status as f_status,
 from bookshelf.api_v1 import (add_epel_yum_repository,
                               add_usr_local_bin_to_path,
                               add_zfs_yum_repository,
+                              apt_install,
+                              apt_install_from_url,
                               dir_ensure,
                               yum_install_from_url,
                               file_attribs,
@@ -48,10 +37,13 @@ from bookshelf.api_v1 import (add_epel_yum_repository,
                               load_state_from_disk,
                               install_zfs_from_testing_repository,
                               install_os_updates,
+                              install_ubuntu_development_tools,
                               disable_selinux,
                               disable_requiretty_on_sudoers,
                               disable_env_reset_on_sudo,
+                              disable_requiretty_on_sshd_config,
                               enable_firewalld_service,
+                              enable_apt_repositories,
                               add_firewalld_port,
                               install_docker,
                               install_centos_development_tools,
@@ -172,10 +164,10 @@ class MyCookbooks():
             add_firewalld_port('80/tcp', permanent=True)
         if 'ubuntu' in data['username']:
             sudo('apt-get -y install nginx')
-            systemd('nginx', start=False, unmask=True)
-            systemd('nginx', start=True, unmask=True)
-            enable_firewalld_service()
-            add_firewalld_port('80/tcp', permanent=True)
+            #systemd('nginx', start=False, unmask=True)
+            #systemd('nginx', start=True, unmask=True)
+            #enable_firewalld_service()
+            #add_firewalld_port('80/tcp', permanent=True)
         # give it some time for the dockerd to restart
         sleep(20)
 
@@ -197,7 +189,7 @@ class MyCookbooks():
         """
         # read distribution from state file
         data = load_state_from_disk()
-        if 'ubuntu' in data['username']:
+        if 'ubuntu' in data['distribution'].lower():
             sudo('/bin/rm /bin/sh')
             sudo('/bin/ln -s /bin/bash /bin/sh')
 
@@ -270,7 +262,6 @@ class MyCookbooks():
                                   "rpmdevtools",
                                   "rpmlint",
                                   "rpm-build",
-                                  "docker-io",
                                   "libffi-devel",
                                   "@buildsys-build",
                                   "openssl-devel",
@@ -333,6 +324,130 @@ class MyCookbooks():
             # transfer files from the master to the slave
             self.create_etc_slave_config()
 
+    def bootstrap_jenkins_slave_ubuntu14(self):
+        # ec2 hosts get their ip addresses using dhcp, we need to know the new
+        # ip address of our box before we continue our provisioning tasks.
+        # we load the state from disk, and store the ip in ec2_host#
+        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
+        with settings(host_string=ec2_host):
+            install_os_updates(distribution='ubuntu14.04')
+
+            enable_apt_repositories('deb',
+                                    'http://archive.ubuntu.com/ubuntu',
+                                    '$(lsb_release -sc)',
+                                    'main universe restricted multiverse')
+
+            # make sure our umask is set to 022
+            self.fix_umask()
+
+            # ttys are tricky, lets make sure we don't need them
+            disable_requiretty_on_sudoers()
+            disable_requiretty_on_sshd_config()
+
+            # when we sudo, we want to keep our original environment variables
+            disable_env_reset_on_sudo()
+
+            install_ubuntu_development_tools()
+
+            # install the latest ZFS from testing
+            #add_zfs_ubuntu_repository()
+            #install_zfs_from_testing_repository()
+
+            # we create a docker group ourselves, as we want to be part
+            # of that group when the daemon first starts.
+            create_docker_group()
+            self.add_user_to_docker_group()
+            install_docker()
+
+            # ubuntu uses dash which causes jenkins jobs to fail
+            self.symlink_sh_to_bash()
+
+            # some flocker acceptance tests fail when we don't have
+            # a know_hosts file
+            sudo("touch /root/.ssh/known_hosts")
+
+            # generate a id_rsa_flocker
+            sudo("test -e  $HOME/.ssh/id_rsa_flocker || ssh-keygen -N '' "
+                 "-f $HOME/.ssh/id_rsa_flocker")
+
+            # and fix perms on /root/,ssh
+            sudo("chmod -R 0600 /root/.ssh")
+
+            # installs a bunch of required packages
+            apt_install(packages=["apt-transport-https",
+                                  "software-properties-common",
+                                  "build-essential",
+                                  "python-virtualenv",
+                                  "desktop-file-utils",
+                                  "git",
+                                  "python-dev",
+                                  "python-tox",
+                                  "python-virtualenv",
+                                  "libffi-dev",
+                                  "libssl-dev",
+                                  "wget",
+                                  "curl",
+                                  "enchant",
+                                  "openjdk-7-jre-headless",
+                                  "libffi-dev",
+                                  "lintian",
+                                  "ntp",
+                                  "rpm2cpio",
+                                  "createrepo",
+                                 # "gettext-dev",
+                                  "libexpat1-dev",
+                                  "libcurl4-openssl-dev",
+                                  "zlib1g-dev",
+                                  "libwww-curl-perl",
+                                  "libssl-dev",
+                                  "nginx",
+                                  "libsvn-perl",
+                                  "ruby-dev"])
+
+            apt_install_from_url('rpmlint',
+                                 'https://launchpad.net/ubuntu/+archive/'
+                                 'primary/+files/rpmlint_1.5-1_all.deb')
+
+            # TODO: this may not be needed, as packaging is done on a docker img
+            install_system_gem('fpm')
+
+            #systemd(service='docker', restart=True)
+            #systemd(service='nginx', start=True, unmask=True)
+
+            # cache some docker images locally to speed up some of our tests
+            for docker_image in ['busybox',
+                                 'openshift/busybox-http-app',
+                                 'python:2.7-slim',
+                                 'clusterhqci/fpm-ubuntu-trusty',
+                                 'clusterhqci/fpm-ubuntu-vivid',
+                                 'clusterhqci/fpm-centos-7']:
+                cache_docker_image_locally(docker_image)
+
+            # centos has a fairly old git, so we install the latest version
+            # in every box.
+            install_recent_git_from_source()
+            add_usr_local_bin_to_path()
+
+            # to use wheels, we want the latest pip
+            update_system_pip_to_latest_pip()
+
+            # cache the latest python modules and dependencies in the local
+            # user cache
+            git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
+            with cd('flocker'):
+                run('pip install --quiet --user .')
+                run('pip install --quiet --user "Flocker[dev]"')
+                run('pip install --quiet --user python-subunit junitxml')
+
+            # nginx is used during the acceptance tests, the VM built by
+            # flocker provision will connect to the jenkins slave on p 80
+            # and retrieve the just generated rpm/deb file
+            self.install_nginx()
+
+            # /etc/slave_config is used by the jenkins_slave plugin to
+            # transfer files from the master to the slave
+            self.create_etc_slave_config()
+
 
 @task
 def create_image():
@@ -347,14 +462,16 @@ def create_image():
         distribution = data['distribution'] + data['os_release']['VERSION_ID']
         access_key_id = C[cloud_type][distribution]['access_key_id']
         secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        instance_name = C[cloud_type][distribution]['instance_name']
+        description = C[cloud_type][distribution]['description']
 
         f_create_image(cloud=cloud_type,
                        region=data['region'],
                        access_key_id=access_key_id,
                        secret_access_key=secret_access_key,
                        instance_id=data['id'],
-                       name="jenkins_slave_template_centos7_" + date,
-                       description='jenkins_slave_template_centos7')
+                       name=instance_name + "_" + date,
+                       description=description)
 
 
 @task
@@ -413,16 +530,16 @@ def help():
                  fab help
 
                  # does the whole thing in one go
-                 fab it:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14>
+                 fab it:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
 
                  # boots an existing instance
                  fab up
 
                  # creates a new instance
-                 fab up:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14>
+                 fab up:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
 
                  # installs packages on an existing instance
-                 fab bootstrap:distribution=<centos7|ubuntu14>
+                 fab bootstrap:distribution=<centos7|ubuntu14.04>
 
                  # creates a new ami
                 fab create_image
@@ -455,10 +572,6 @@ def help():
                  # OS_AUTH_URL
                  # OS_REGION_NAME
                  # OS_NO_CACHE
-
-
-
-
           """)
 
 
@@ -503,7 +616,7 @@ def bootstrap(distribution=None):
     if distribution == 'centos7':
         cookbook.bootstrap_jenkins_slave_centos7()
 
-    if distribution == 'ubuntu14':
+    if 'ubuntu14.04' in distribution:
         cookbook.bootstrap_jenkins_slave_ubuntu14()
 
 
@@ -623,7 +736,7 @@ jenkins_plugin_dict = cookbook.segredos()[
     'env']['default']['jenkins']['clouds']['jclouds_plugin'][0]
 
 # soaks up the environment variables
-ec2_instance_type = os.getenv('AWS_INSTANCE_TYPE', 't2.micro')
+ec2_instance_type = os.getenv('AWS_INSTANCE_TYPE', 't2.medium')
 ec2_key_filename = os.environ['AWS_KEY_FILENAME']  # path to ssh key
 ec2_key_pair = os.environ['AWS_KEY_PAIR']
 ec2_region = os.getenv('AWS_REGION', 'us-west-2')
@@ -657,10 +770,28 @@ C = {
             'secret_access_key': ec2_secret_access_key,
             'access_key_id': ec2_access_key_id,
             'security_groups': ['ssh'],
-            'instance_name': 'jenkins_slave_centos7_template',
+            'instance_name': 'jenkins_slave_centos7_ondemand',
+            'description': 'jenkins_slave_centos7_ondemand',
             'key_filename': ec2_key_filename,
-            'tags': {'name': 'jenkins_slave_centos7_template'}
+            'tags': {'name': 'jenkins_slave_centos7_ondemand'}
         },
+        'ubuntu14.04': {
+            'ami': 'ami-bddbcf8d',
+            'username': 'ubuntu',
+            'disk_name': '/dev/sda1',
+            'disk_size': '40',
+            'instance_type': ec2_instance_type,
+            'key_pair': ec2_key_pair,
+            'region': ec2_region,
+            'secret_access_key': ec2_secret_access_key,
+            'access_key_id': ec2_access_key_id,
+            'security_groups': ['ssh'],
+            'instance_name': 'jenkins_slave_ubuntu14_ondemand',
+            'description': 'jenkins_slave_ubuntu14_ondemand',
+            'key_filename': ec2_key_filename,
+            'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
+        },
+
     },
     'rackspace': {
         'centos7': {
@@ -674,13 +805,34 @@ C = {
             'secret_access_key': rackspace_password,
             'access_key_id': rackspace_username,
             'security_groups': '',
-            'instance_name': 'jenkins_slave_centos7_template',
+            'instance_name': 'jenkins_slave_centos7_ondemand',
+            'description': 'jenkins_slave_centos7_ondemand',
             'public_key': rackspace_public_key,
             'auth_system': rackspace_auth_system,
             'tenant': rackspace_tenant_name,
             'auth_url': rackspace_auth_url,
             'key_filename': rackspace_key_filename,
-            'tags': {'name': 'jenkins_slave_centos7_template'}
+            'tags': {'name': 'jenkins_slave_centos7_ondemand'}
+        },
+        'ubuntu14.04': {
+            'ami': 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)',
+            'username': 'root',
+            'disk_name': '',
+            'disk_size': '',
+            'instance_type': rackspace_flavor,
+            'key_pair': rackspace_key_pair,
+            'region': rackspace_region,
+            'secret_access_key': rackspace_password,
+            'access_key_id': rackspace_username,
+            'security_groups': '',
+            'instance_name': 'jenkins_slave_ubuntu14_ondemand',
+            'description': 'jenkins_slave_ubuntu14_ondemand',
+            'public_key': rackspace_public_key,
+            'auth_system': rackspace_auth_system,
+            'tenant': rackspace_tenant_name,
+            'auth_url': rackspace_auth_url,
+            'key_filename': rackspace_key_filename,
+            'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }
 }
