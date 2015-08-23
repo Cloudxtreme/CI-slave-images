@@ -4,7 +4,6 @@ usage:
 
 clone the following repos:
 
-     git clone git@github.com:ClusterHQ/fabric-collections.git fabric_collections
      git clone git@github.com:ClusterHQ/segredos.git segredos
 
 export the following environment variables:
@@ -28,6 +27,7 @@ create your virtualenv:
 
     virtualenv2 venv
     . venv/bin/activate
+    venv/bin/pip2 install -r requirements.txt
 
 then execute as:
 
