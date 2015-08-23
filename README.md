@@ -7,19 +7,33 @@ clone the following repos:
      git clone git@github.com:ClusterHQ/segredos.git segredos
 
 export the following environment variables:
+
     * AWS_KEY_PAIR
+
     * AWS_KEY_FILENAME
+
     * RACKSPACE_KEY_PAIR
+
     * RACKSPACE_KEY_FILENAME
+
     * AWS_SECRET_ACCESS_KEY
+
     * AWS_ACCESS_KEY_ID
+
     * OS_USERNAME
+
     * OS_TENANT_NAME
+
     * OS_PASSWORD
+
     * OS_AUTH_URL
+
     * OS_AUTH_SYSTEM
+
     * OS_REGION_NAME
+
     * OS_NO_CACHE
+
 
 create your virtualenv:
 
