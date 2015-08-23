@@ -229,7 +229,7 @@ class MyCookbooks():
         assert 'docker' in run('ls -l /etc/init')
 
         log_green("check that tty are not required when sudo'ing")
-        assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
+        assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
 
         log_green('check that the environment is not reset on sudo')
         assert sudo("sudo grep "
@@ -243,14 +243,14 @@ class MyCookbooks():
 
         log_green('check that ubuntu is part of group docker')
         assert user.exists("ubuntu")
-        assert group.exists("docker")
+        assert group.is_exists("docker")
         assert user.is_belonging_group("ubuntu", "docker")
 
         log_green('check that nginx is running')
         assert package.installed('nginx')
         assert port.is_listening(80, "tcp")
         assert process.is_up("nginx") is True
-        assert 'nginx' in run('ls -l /etc/init')
+        assert 'nginx' in run('ls -l /etc/init.d/')
 
         log_green('check that docker is running')
         assert sudo('docker --version | grep "1.8."')
