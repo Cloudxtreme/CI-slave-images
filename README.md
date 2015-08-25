@@ -4,7 +4,12 @@ usage:
 
 clone the following repos:
 
+
+```
+     git clone git@github.com:ClusterHQ/CI-slave-images
+     cd CI-slave-images
      git clone git@github.com:ClusterHQ/segredos.git segredos
+```
 
 export the following environment variables:
 
@@ -37,12 +42,16 @@ export the following environment variables:
 
 create your virtualenv:
 
+```
     virtualenv2 venv
     . venv/bin/activate
     venv/bin/pip2 install -r requirements.txt
 
+```
+
 then execute as:
 
+```
     venv/bin/fab it:cloud=ec2,distribution=centos7
     venv/bin/fab destroy
     venv/bin/fab it:cloud=rackspace,distribution=ubuntu14.04
@@ -62,6 +71,7 @@ then execute as:
         tests         run tests against an existing instance
         up            boots a new instance on amazon or rackspace
 
+```
 
 The fab code should bootstrap an AWS/Rackspace instance,
 provision it and bake an image before deleting the original instance.
