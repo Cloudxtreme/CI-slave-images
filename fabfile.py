@@ -5,6 +5,7 @@
 # usage:
 #       fab help
 #
+
 import os
 import yaml
 import re
@@ -577,24 +578,35 @@ class MyCookbooks():
                 "libsvn-perl",
                 "ruby-dev"]
 
-    def check_for_missing_environment_variables(self):
+    def check_for_missing_environment_variables(self, cloud_type=None):
         """ double checks that the minimum environment variables have been
             configured correctly.
         """
+
         env_var_missing = []
-        for env_var in ['AWS_KEY_PAIR',
-                        'AWS_KEY_FILENAME',
-                        'RACKSPACE_KEY_PAIR',
-                        'RACKSPACE_KEY_FILENAME',
-                        'AWS_SECRET_ACCESS_KEY',
-                        'AWS_ACCESS_KEY_ID',
-                        'OS_USERNAME',
-                        'OS_TENANT_NAME',
-                        'OS_PASSWORD',
-                        'OS_AUTH_URL',
-                        'OS_AUTH_SYSTEM',
-                        'OS_REGION_NAME',
-                        'OS_NO_CACHE']:
+
+        cloud_vars = {'ec2': ['AWS_KEY_PAIR',
+                              'AWS_KEY_FILENAME',
+                              'RACKSPACE_KEY_PAIR',
+                              'RACKSPACE_KEY_FILENAME',
+                              'AWS_SECRET_ACCESS_KEY',
+                              'AWS_ACCESS_KEY_ID'],
+                      'rackspace': ['OS_USERNAME',
+                                    'OS_TENANT_NAME',
+                                    'OS_PASSWORD',
+                                    'OS_AUTH_URL',
+                                    'OS_AUTH_SYSTEM',
+                                    'OS_REGION_NAME',
+                                    'OS_NO_CACHE']
+                      }
+
+        if is_there_state():
+            data = load_state_from_disk()
+            env_vars = cloud_vars[data['cloud_type']]
+        elif cloud_type is None:
+            env_vars = cloud_vars['ec2'] + cloud_vars['rackspace']
+
+        for env_var in env_vars:
             if env_var not in os.environ:
                 env_var_missing.append(env_var)
 
@@ -1010,8 +1022,24 @@ def up(cloud=None, distribution=None):
 """
 cookbook = MyCookbooks()
 # make sure we have all the required variables available in the environment
-if cookbook.check_for_missing_environment_variables():
-    exit(1)
+if ':' in sys.argv:
+    for actions in sys.argv:
+        if actions.split(':')[0] in ['it',
+                                     'bootstrap',
+                                     'up',
+                                     'down',
+                                     'destroy']:
+            (action, arguments) = actions.split(':')
+            if 'cloud=ec2' in arguments:
+                if cookbook.check_for_missing_environment_variables('ec2'):
+                    exit(1)
+            if 'cloud=rackspace' in arguments:
+                if cookbook.check_for_missing_environment_variables('rackspace'):
+                    exit(1)
+else:
+    if cookbook.check_for_missing_environment_variables():
+        exit(1)
+
 
 # retrieve some of the secrets from the segredos dict
 jenkins_plugin_dict = cookbook.segredos()[
