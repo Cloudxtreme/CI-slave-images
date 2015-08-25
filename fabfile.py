@@ -46,7 +46,7 @@ from bookshelf.api_v1 import (add_epel_yum_repository,
                               install_zfs_from_testing_repository,
                               install_os_updates,
                               install_ubuntu_development_tools,
-                              disable_selinux,
+                              enable_selinux,
                               disable_requiretty_on_sudoers,
                               disable_env_reset_on_sudo,
                               disable_requiretty_on_sshd_config,
@@ -153,8 +153,8 @@ class MyCookbooks():
         assert package.installed("zfs")
         assert run('lsmod |grep zfs')
 
-        log_green('check that SElinux is disabled')
-        assert sudo('getenforce | grep -i "disabled"')
+        log_green('check that SElinux is enforcing')
+        assert sudo('getenforce | grep -i "enforcing"')
 
         log_green('check that firewalld is enabled')
         assert sudo("systemctl is-enabled firewalld")
@@ -341,9 +341,8 @@ class MyCookbooks():
                 "zfs-release")
             install_zfs_from_testing_repository()
 
-            # disable selinux()
-            # note: will reboot the host for us if selinux is enabled
-            disable_selinux()
+            # note: will reboot the host for us if selinux is disabled
+            enable_selinux()
             wait_for_ssh(load_state_from_disk()['ip_address'])
 
         # these are likely to happen after a reboot
@@ -544,6 +543,7 @@ class MyCookbooks():
                 "openssl-devel",
                 "nginx",
                 "subversion-perl",
+                "docker-selinux",
                 "ruby-devel"]
 
     def ubuntu14_required_packages(self):
