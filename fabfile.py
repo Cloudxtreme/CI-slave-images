@@ -1028,6 +1028,11 @@ def up(cloud=None, distribution=None):
     ___main___
 """
 cookbook = MyCookbooks()
+
+if 'help' in sys.argv:
+    help()
+    exit(1)
+
 # make sure we have all the required variables available in the environment
 list_of_clouds = []
 
