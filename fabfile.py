@@ -593,17 +593,17 @@ class MyCookbooks():
                 "libsvn-perl",
                 "ruby-dev"]
 
-    def check_for_missing_environment_variables(self, cloud_type=None):
+    def check_for_missing_environment_variables(self, cloud_type=[]):
         """ double checks that the minimum environment variables have been
             configured correctly.
         """
-
         env_var_missing = []
 
         cloud_vars = {'ec2': ['AWS_KEY_PAIR',
                               'AWS_KEY_FILENAME',
                               'AWS_SECRET_ACCESS_KEY',
                               'AWS_ACCESS_KEY_ID'],
+
                       'rackspace': ['OS_USERNAME',
                                     'OS_TENANT_NAME',
                                     'OS_PASSWORD',
@@ -615,15 +615,10 @@ class MyCookbooks():
                                     'OS_NO_CACHE']
                       }
 
-        if is_there_state():
-            data = load_state_from_disk()
-            env_vars = cloud_vars[data['cloud_type']]
-        elif cloud_type is None:
-            env_vars = sum(cloud_vars.values(), [])
-
-        for env_var in env_vars:
-            if env_var not in os.environ:
-                env_var_missing.append(env_var)
+        for cloud in cloud_type:
+            for env_var in cloud_vars[cloud]:
+                if env_var not in os.environ:
+                    env_var_missing.append(env_var)
 
         if env_var_missing:
             return False
@@ -665,6 +660,20 @@ class MyCookbooks():
                       homedir + '.bashrc']:
                 file_append(filename=f, text='umask 022')
                 file_attribs(f, mode=750, owner=data['username'])
+
+    def get_cloud_environment(self, string):
+        """
+            returns the cloud type from a fab execution string:
+            fab it:cloud=rackspace,distribution=centos7
+        """
+        clouds = []
+        tasks = string.split(' ')
+        for _task in tasks:
+            if 'cloud=ec2' in _task:
+                clouds.append('ec2')
+            if 'cloud=rackspace' in _task:
+                clouds.append('rackspace')
+        return clouds
 
     def install_nginx(self):
         """ installs nginx
@@ -1029,6 +1038,7 @@ def up(cloud=None, distribution=None):
 """
 cookbook = MyCookbooks()
 
+# is this a fab help ?
 if 'help' in sys.argv:
     help()
     exit(1)
@@ -1044,6 +1054,7 @@ else:
     # no state.json, we expect to find a cloud='' option in our argv
     list_of_clouds = cookbook.get_cloud_environment(' '.join(sys.argv))
 
+<<<<<<< HEAD
 if list_of_clouds == []:
     # sounds like we are asking for a task that require cloud environment
     # variables and we don't have them defined, lets inform the user what
@@ -1055,6 +1066,15 @@ if list_of_clouds == []:
 # variables we need for that cloud have been defined.
 if cookbook.check_for_missing_environment_variables(list_of_clouds) is False:
     help()
+=======
+# sounds like, we are asking for a task that require cloud environment variables
+# and we don't have them defined, lets inform the user what variables we are
+# looking for.
+if list_of_clouds == []:
+    list_of_clouds = ['ec2', 'rackspace']
+
+if cookbook.check_for_missing_environment_variables(list_of_clouds) is False:
+>>>>>>> 43b3bfd... refactor things a bit from jml review
     exit(1)
 
 # retrieve some of the secrets from the segredos dict
