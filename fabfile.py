@@ -602,8 +602,6 @@ class MyCookbooks():
 
         cloud_vars = {'ec2': ['AWS_KEY_PAIR',
                               'AWS_KEY_FILENAME',
-                              'RACKSPACE_KEY_PAIR',
-                              'RACKSPACE_KEY_FILENAME',
                               'AWS_SECRET_ACCESS_KEY',
                               'AWS_ACCESS_KEY_ID'],
                       'rackspace': ['OS_USERNAME',
@@ -612,6 +610,8 @@ class MyCookbooks():
                                     'OS_AUTH_URL',
                                     'OS_AUTH_SYSTEM',
                                     'OS_REGION_NAME',
+                                    'RACKSPACE_KEY_PAIR',
+                                    'RACKSPACE_KEY_FILENAME',
                                     'OS_NO_CACHE']
                       }
 
