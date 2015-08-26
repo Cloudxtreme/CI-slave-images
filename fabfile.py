@@ -1047,11 +1047,12 @@ else:
     # no state.json, we expect to find a cloud='' option in our argv
     list_of_clouds = cookbook.get_cloud_environment(' '.join(sys.argv))
 
-# sounds like, we are asking for a task that require cloud environment variables
-# and we don't have them defined, lets inform the user what variables we are
-# looking for.
 if list_of_clouds == []:
-    list_of_clouds = ['ec2', 'rackspace']
+    # sounds like we are asking for a task that require cloud environment
+    # variables and we don't have them defined, lets inform the user what
+    # variables we are looking for.
+    help()
+    exit(1)
 
 if cookbook.check_for_missing_environment_variables(list_of_clouds) is False:
     exit(1)
