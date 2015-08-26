@@ -619,7 +619,7 @@ class MyCookbooks():
             data = load_state_from_disk()
             env_vars = cloud_vars[data['cloud_type']]
         elif cloud_type is None:
-            env_vars = cloud_vars['ec2'] + cloud_vars['rackspace']
+            env_vars = sum(cloud_vars.values(), [])
 
         for env_var in env_vars:
             if env_var not in os.environ:
