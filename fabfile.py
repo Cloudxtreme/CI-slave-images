@@ -16,8 +16,8 @@ from envassert import (file,
                        package,
                        user,
                        group,
-                       port,
-                       detect)
+                       detect,
+                       port)
 from fabric.api import sudo, task, env, run
 from fabric.context_managers import cd, settings, hide
 from fabric.contrib.files import (sed,
@@ -55,6 +55,7 @@ from bookshelf.api_v1 import (add_epel_yum_repository,
                               add_firewalld_port,
                               install_docker,
                               install_centos_development_tools,
+                              reboot,
                               systemd,
                               yum_install,
                               install_system_gem,
@@ -112,101 +113,104 @@ class MyCookbooks():
                                  distribution,
                                  username):
 
-        env.platform_family = detect.detect()
+        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
+        with settings(host_string=ec2_host):
 
-        log_green('check that /bin/sh is symlinked to bash')
-        assert file.is_link("/bin/sh")
+            env.platform_family = detect.detect()
 
-        # TODO: is this required on centos?
-        log_green('check that our umask matches 022')
-        # assert command.is_work('su - centos -c "umask | grep 022"')
+            log_green('check that /bin/sh is symlinked to bash')
+            assert file.is_link("/bin/sh")
 
-        log_green("check that tty are not required when sudo'ing")
-        assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
+            # TODO: is this required on centos?
+            log_green('check that our umask matches 022')
+            # assert command.is_work('su - centos -c "umask | grep 022"')
 
-        log_green('check that the environment is not reset on sudo')
-        assert sudo("sudo grep "
-                    "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
-                    " /etc/sudoers")
+            log_green("check that tty are not required when sudo'ing")
+            assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
 
-        log_green('assert that EPEL is installed')
-        assert package.installed('epel-release')
+            log_green('check that the environment is not reset on sudo')
+            assert sudo("sudo grep "
+                        "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
+                        " /etc/sudoers")
 
-        # TODO:
-        # assert that centos developments tools is installed
+            log_green('assert that EPEL is installed')
+            assert package.installed('epel-release')
 
-        log_green('assert that required rpm packages are installed')
-        for pkg in self.centos7_required_packages():
-            if '@' in pkg:
-                continue
-            log_green(' checking package: %s' % pkg)
-            assert package.installed(pkg)
+            # TODO:
+            # assert that centos developments tools is installed
 
-        log_green('check that the zfs repository is installed')
-        assert package.installed('zfs-release')
+            log_green('assert that required rpm packages are installed')
+            for pkg in self.centos7_required_packages():
+                if '@' in pkg:
+                    continue
+                log_green(' checking package: %s' % pkg)
+                assert package.installed(pkg)
 
-        log_green('check that zfs from testing repository is installed')
-        assert run(
-            'grep "SPL_DKMS_DISABLE_STRIP=y" /etc/sysconfig/spl')
-        assert run(
-            'grep "ZFS_DKMS_DISABLE_STRIP=y" /etc/sysconfig/zfs')
-        assert package.installed("zfs")
-        assert run('lsmod |grep zfs')
+            log_green('check that the zfs repository is installed')
+            assert package.installed('zfs-release')
 
-        log_green('check that SElinux is enforcing')
-        assert sudo('getenforce | grep -i "enforcing"')
+            log_green('check that zfs from testing repository is installed')
+            assert run(
+                'grep "SPL_DKMS_DISABLE_STRIP=y" /etc/sysconfig/spl')
+            assert run(
+                'grep "ZFS_DKMS_DISABLE_STRIP=y" /etc/sysconfig/zfs')
+            assert package.installed("zfs")
+            assert run('lsmod |grep zfs')
 
-        log_green('check that firewalld is enabled')
-        assert sudo("systemctl is-enabled firewalld")
+            log_green('check that SElinux is enforcing')
+            assert sudo('getenforce | grep -i "enforcing"')
 
-        log_green('check that centos is part of group docker')
-        assert user.exists("centos")
-        assert group.is_exists("docker")
-        assert user.is_belonging_group("centos", "docker")
+            log_green('check that firewalld is enabled')
+            assert sudo("systemctl is-enabled firewalld")
 
-        log_green('check that nginx is running')
-        assert package.installed('nginx')
-        assert port.is_listening(80, "tcp")
-        assert process.is_up("nginx") is True
-        assert sudo("systemctl is-enabled nginx")
+            log_green('check that centos is part of group docker')
+            assert user.exists("centos")
+            assert group.is_exists("docker")
+            assert user.is_belonging_group("centos", "docker")
 
-        log_green('check that docker is running')
-        assert sudo('rpm -q docker-engine | grep "1.8."')
-        assert process.is_up("docker") is True
-        assert sudo("systemctl is-enabled docker")
+            log_green('check that nginx is running')
+            assert package.installed('nginx')
+            assert port.is_listening(80, "tcp")
+            assert process.is_up("nginx") is True
+            assert sudo("systemctl is-enabled nginx")
 
-        log_green('assert that /bin/sh is symlinked to /bin/bash')
-        assert run('ls -l /bin/sh | grep bash')
+            log_green('check that docker is running')
+            assert sudo('rpm -q docker-engine | grep "1.8."')
+            assert process.is_up("docker") is True
+            assert sudo("systemctl is-enabled docker")
 
-        log_green('check that /root/.ssh/know_hosts exists')
-        assert '-rw------- 1 root root' in sudo(
-            "ls -l /root/.ssh/known_hosts")
+            log_green('assert that /bin/sh is symlinked to /bin/bash')
+            assert run('ls -l /bin/sh | grep bash')
 
-        log_green('check that fpm is installed')
-        assert 'fpm' in sudo('gem list')
+            log_green('check that /root/.ssh/know_hosts exists')
+            assert '-rw-------. 1 root root' in sudo(
+                "ls -l /root/.ssh/known_hosts")
 
-        log_green('check that images have been downloaded locally')
-        for image in self.local_docker_images():
-            log_green(' checking %s' % image)
-            if ':' in image:
-                parts = image.split(':')
-                expression = parts[0] + '.*' + parts[1]
-                assert re.search(expression, run('docker images'))
-            else:
-                assert image in run('docker images')
+            log_green('check that fpm is installed')
+            assert 'fpm' in sudo('gem list')
 
-        log_green('check that git is installed locally')
-        assert file.exists("/usr/local/bin/git")
+            log_green('check that images have been downloaded locally')
+            for image in self.local_docker_images():
+                log_green(' checking %s' % image)
+                if ':' in image:
+                    parts = image.split(':')
+                    expression = parts[0] + '.*' + parts[1]
+                    assert re.search(expression, run('docker images'))
+                else:
+                    assert image in run('docker images')
 
-        log_green('check that /usr/local/bin is in path')
-        assert '/usr/local/bin/git' in run('which git')
+            log_green('check that git is installed locally')
+            assert file.exists("/usr/local/bin/git")
 
-        log_green('check that pip is the latest version')
-        assert '7.1.' in run('pip --version')
+            log_green('check that /usr/local/bin is in path')
+            assert '/usr/local/bin/git' in run('which git')
 
-        log_green('check that /etc/slave_config exists')
-        assert file.dir_exists("/etc/slave_config")
-        assert file.mode_is("/etc/slave_config", "777")
+            log_green('check that pip is the latest version')
+            assert '7.1.' in run('pip --version')
+
+            log_green('check that /etc/slave_config exists')
+            assert file.dir_exists("/etc/slave_config")
+            assert file.mode_is("/etc/slave_config", "777")
 
     def acceptance_tests_ubuntu14(self,
                                   cloud,
@@ -217,77 +221,80 @@ class MyCookbooks():
                                   distribution,
                                   username):
 
-        env.platform_family = detect.detect()
+        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
+        with settings(host_string=ec2_host):
 
-        log_green('check that /bin/sh is symlinked to bash')
-        assert 'bash' in run('ls -l /bin/sh')
+            env.platform_family = detect.detect()
 
-        log_green('check that our umask matches 022')
-        assert '022' in run('umask')
+            log_green('check that /bin/sh is symlinked to bash')
+            assert 'bash' in run('ls -l /bin/sh')
 
-        log_green('check that docker is enabled')
-        assert 'docker' in run('ls -l /etc/init')
+            log_green('check that our umask matches 022')
+            assert '022' in run('umask')
 
-        log_green("check that tty are not required when sudo'ing")
-        assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
+            log_green('check that docker is enabled')
+            assert 'docker' in run('ls -l /etc/init')
 
-        log_green('check that the environment is not reset on sudo')
-        assert sudo("sudo grep "
-                    "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
-                    " /etc/sudoers")
+            log_green("check that tty are not required when sudo'ing")
+            assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
 
-        log_green('assert that required deb packages are installed')
-        for pkg in self.ubuntu14_required_packages():
-            log_green(' checking package: %s' % pkg)
-            assert package.installed(pkg)
+            log_green('check that the environment is not reset on sudo')
+            assert sudo("sudo grep "
+                        "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
+                        " /etc/sudoers")
 
-        log_green('check that ubuntu is part of group docker')
-        assert user.exists("ubuntu")
-        assert group.is_exists("docker")
-        assert user.is_belonging_group("ubuntu", "docker")
+            log_green('assert that required deb packages are installed')
+            for pkg in self.ubuntu14_required_packages():
+                log_green(' checking package: %s' % pkg)
+                assert package.installed(pkg)
 
-        log_green('check that nginx is running')
-        assert package.installed('nginx')
-        assert port.is_listening(80, "tcp")
-        assert process.is_up("nginx") is True
-        assert 'nginx' in run('ls -l /etc/init.d/')
+            log_green('check that ubuntu is part of group docker')
+            assert user.exists("ubuntu")
+            assert group.is_exists("docker")
+            assert user.is_belonging_group("ubuntu", "docker")
 
-        log_green('check that docker is running')
-        assert sudo('docker --version | grep "1.8."')
-        assert process.is_up("docker") is True
+            log_green('check that nginx is running')
+            assert package.installed('nginx')
+            assert port.is_listening(80, "tcp")
+            assert process.is_up("nginx") is True
+            assert 'nginx' in run('ls -l /etc/init.d/')
 
-        log_green('assert that /bin/sh is symlinked to /bin/bash')
-        assert run('ls -l /bin/sh | grep bash')
+            log_green('check that docker is running')
+            assert sudo('docker --version | grep "1.8."')
+            assert process.is_up("docker") is True
 
-        log_green('check that /root/.ssh/know_hosts exists')
-        assert '-rw------- 1 root root' in sudo(
-            "ls -l /root/.ssh/known_hosts")
+            log_green('assert that /bin/sh is symlinked to /bin/bash')
+            assert run('ls -l /bin/sh | grep bash')
 
-        log_green('check that fpm is installed')
-        assert 'fpm' in sudo('gem list')
+            log_green('check that /root/.ssh/know_hosts exists')
+            assert '-rw------- 1 root root' in sudo(
+                "ls -l /root/.ssh/known_hosts")
 
-        log_green('check that images have been downloaded locally')
-        for image in self.local_docker_images():
-            log_green(' checking %s' % image)
-            if ':' in image:
-                parts = image.split(':')
-                expression = parts[0] + '.*' + parts[1]
-                assert re.search(expression, run('docker images'))
-            else:
-                assert image in run('docker images')
+            log_green('check that fpm is installed')
+            assert 'fpm' in sudo('gem list')
 
-        log_green('check that git is installed locally')
-        assert file.exists("/usr/local/bin/git")
+            log_green('check that images have been downloaded locally')
+            for image in self.local_docker_images():
+                log_green(' checking %s' % image)
+                if ':' in image:
+                    parts = image.split(':')
+                    expression = parts[0] + '.*' + parts[1]
+                    assert re.search(expression, run('docker images'))
+                else:
+                    assert image in run('docker images')
 
-        log_green('check that /usr/local/bin is in path')
-        assert '/usr/local/bin/git' in run('which git')
+            log_green('check that git is installed locally')
+            assert file.exists("/usr/local/bin/git")
 
-        log_green('check that pip is the latest version')
-        assert '7.1.' in run('pip --version')
+            log_green('check that /usr/local/bin is in path')
+            assert '/usr/local/bin/git' in run('which git')
 
-        log_green('check that /etc/slave_config exists')
-        assert file.dir_exists("/etc/slave_config")
-        assert file.mode_is("/etc/slave_config", "777")
+            log_green('check that pip is the latest version')
+            assert '7.1.' in run('pip --version')
+
+            log_green('check that /etc/slave_config exists')
+            assert file.dir_exists("/etc/slave_config")
+            assert file.mode_is("/etc/slave_config", "777")
 
     def add_user_to_docker_group(self):
         """ make sure the user running jenkins is part of the docker group """
@@ -295,12 +302,12 @@ class MyCookbooks():
         data = load_state_from_disk()
         with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                       warn_only=True, capture=True):
-            if 'centos' in data['username']:
+            if 'centos' in data['distribution']:
                 user_ensure('centos', home='/home/centos', shell='/bin/bash')
                 group_ensure('docker', gid=55)
                 group_user_ensure('docker', 'centos')
 
-            if 'ubuntu' in data['username']:
+            if 'ubuntu' in data['distribution']:
                 user_ensure('ubuntu', home='/home/ubuntu', shell='/bin/bash')
                 group_ensure('docker', gid=55)
                 group_user_ensure('docker', 'ubuntu')
@@ -329,10 +336,18 @@ class MyCookbooks():
             # installs a bunch of required packages
             yum_install(packages=self.centos7_required_packages())
 
+            # installing the source for the centos kernel is a bit of an odd
+            # process these days.
             yum_install_from_url(
                 "http://vault.centos.org/7.1.1503/updates/Source/SPackages/"
                 "kernel-3.10.0-229.11.1.el7.src.rpm",
                 "non-available-kernel-src")
+
+            # we want to be running the latest kernel before installing ZFS
+            # so, lets reboot and make sure we do.
+            with settings(warn_only=True):
+                reboot()
+            wait_for_ssh(load_state_from_disk()['ip_address'])
 
             # install the latest ZFS from testing
             add_zfs_yum_repository()
@@ -839,7 +854,6 @@ def it(cloud, distribution):
     up(cloud=cloud, distribution=distribution)
     bootstrap(distribution)
     tests()
-
     create_image()
     destroy()
 
