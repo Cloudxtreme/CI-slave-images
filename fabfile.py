@@ -116,7 +116,6 @@ class MyCookbooks():
 
         ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
         with settings(host_string=ec2_host):
-<<<<<<< HEAD
 
             env.platform_family = detect.detect()
 
@@ -225,7 +224,6 @@ class MyCookbooks():
 
         ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
         with settings(host_string=ec2_host):
-<<<<<<< HEAD
 
             env.platform_family = detect.detect()
 
