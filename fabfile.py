@@ -844,8 +844,8 @@ def help():
             http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
 
             # AWS_ACCESS_KEY_ID
-            # AWS_ACCESS_KEY_FILENAME
-            # AWS_ACCESS_KEY_PAIR
+            # AWS_KEY_FILENAME
+            # AWS_KEY_PAIR
             # AWS_SECRET_ACCESS_KEY
             # AWS_ACCESS_REGION (optional)
             # AWS_AMI (optional)
@@ -1090,7 +1090,8 @@ if 'rackspace' in list_of_clouds:
     rackspace_tenant_name = os.environ['OS_TENANT_NAME']
     rackspace_password = os.environ['OS_PASSWORD']
     rackspace_auth_url = os.getenv('OS_AUTH_URL',
-                                'https://identity.api.rackspacecloud.com/v2.0/')
+                                   'https://identity.api.rackspacecloud.com/'
+                                   'v2.0/')
     rackspace_auth_system = os.getenv('OS_AUTH_SYSTEM', 'rackspace')
     rackspace_region = os.getenv('OS_REGION_NAME', 'DFW')
     rackspace_flavor = '1GB Standard Instance'
