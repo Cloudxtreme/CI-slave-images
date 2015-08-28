@@ -1187,7 +1187,7 @@ if 'rackspace' in list_of_clouds:
 # Let's disable know_hosts, since on Clouds that behaviour can get in the
 # way as we continuosly destroy/create boxes.
 env.disable_known_hosts = True
-env.use_ssh_config = True
+env.use_ssh_config = False
 
 # We store the state in a local file as we need to keep track of the
 # ec2 instance id and ip_address so that we can run provision multiple times
