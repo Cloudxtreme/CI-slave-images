@@ -196,9 +196,9 @@ class MyCookbooks():
                 if ':' in image:
                     parts = image.split(':')
                     expression = parts[0] + '.*' + parts[1]
-                    assert re.search(expression, run('docker images'))
+                    assert re.search(expression, sudo('docker images'))
                 else:
-                    assert image in run('docker images')
+                    assert image in sudo('docker images')
 
             log_green('check that git is installed locally')
             assert file.exists("/usr/local/bin/git")
@@ -280,9 +280,9 @@ class MyCookbooks():
                 if ':' in image:
                     parts = image.split(':')
                     expression = parts[0] + '.*' + parts[1]
-                    assert re.search(expression, run('docker images'))
+                    assert re.search(expression, sudo('docker images'))
                 else:
-                    assert image in run('docker images')
+                    assert image in sudo('docker images')
 
             log_green('check that git is installed locally')
             assert file.exists("/usr/local/bin/git")
