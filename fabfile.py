@@ -844,8 +844,8 @@ def help():
             http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
 
             # AWS_ACCESS_KEY_ID
-            # AWS_ACCESS_KEY_FILENAME
-            # AWS_ACCESS_KEY_PAIR
+            # AWS_KEY_FILENAME
+            # AWS_KEY_PAIR
             # AWS_SECRET_ACCESS_KEY
             # AWS_ACCESS_REGION (optional)
             # AWS_AMI (optional)
