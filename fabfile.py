@@ -280,9 +280,9 @@ class MyCookbooks():
                 if ':' in image:
                     parts = image.split(':')
                     expression = parts[0] + '.*' + parts[1]
-                    assert re.search(expression, run('docker images'))
+                    assert re.search(expression, sudo('docker images'))
                 else:
-                    assert image in run('docker images')
+                    assert image in sudo('docker images')
 
             log_green('check that git is installed locally')
             assert file.exists("/usr/local/bin/git")
@@ -593,10 +593,13 @@ class MyCookbooks():
                 "libsvn-perl",
                 "ruby-dev"]
 
-    def check_for_missing_environment_variables(self, cloud_type=[]):
+    def check_for_missing_environment_variables(self, cloud_type=None):
         """ double checks that the minimum environment variables have been
             configured correctly.
         """
+        if not cloud_type:
+            cloud_type = []
+
         env_var_missing = []
 
         cloud_vars = {'ec2': ['AWS_KEY_PAIR',
@@ -620,8 +623,7 @@ class MyCookbooks():
                 if env_var not in os.environ:
                     env_var_missing.append(env_var)
 
-        if env_var_missing:
-            return False
+        return len(env_var_missing) == 0
 
     def create_etc_slave_config(self):
         """ /etc/slave_config is used by jenkins slave_plugin.
@@ -1054,16 +1056,16 @@ else:
     # no state.json, we expect to find a cloud='' option in our argv
     list_of_clouds = cookbook.get_cloud_environment(' '.join(sys.argv))
 
-if list_of_clouds == []:
+if not len(list_of_clouds):
     # sounds like we are asking for a task that require cloud environment
-    # variables and we don't have them defined, lets inform the user what
+    # variables and we don't have them defined, let's inform the user what
     # variables we are looking for.
     help()
     exit(1)
 
 # right, we have a 'cloud_type' in list_of_clouds, lets find out if the env
 # variables we need for that cloud have been defined.
-if cookbook.check_for_missing_environment_variables(list_of_clouds) is False:
+if not cookbook.check_for_missing_environment_variables(list_of_clouds):
     help()
     exit(1)
 
@@ -1184,16 +1186,17 @@ if 'rackspace' in list_of_clouds:
     }
 
 # Modify some global Fabric behaviours:
-# Let's disable know_hosts, since on Clouds that behaviour can get in the
+# Let's disable known_hosts, since on Clouds that behaviour can get in the
 # way as we continuosly destroy/create boxes.
 env.disable_known_hosts = True
 env.use_ssh_config = False
+env.eagerly_disconnect = True
 
 # We store the state in a local file as we need to keep track of the
 # ec2 instance id and ip_address so that we can run provision multiple times
 # By using some metadata locally about the VM we get a similar workflow to
 # vagrant (up, down, destroy, bootstrap).
-if is_there_state() is False:
+if not is_there_state():
     pass
 else:
     data = load_state_from_disk()
