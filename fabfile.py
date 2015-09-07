@@ -187,8 +187,12 @@ class MyCookbooks():
             assert run('ls -l /bin/sh | grep bash')
 
             log_green('check that /root/.ssh/know_hosts exists')
-            assert '-rw-------. 1 root root' in sudo(
-                "ls -l /root/.ssh/known_hosts")
+            if 'disabled' or 'permissive' in sudo('getenforce'):
+                assert '-rw------- 1 root root' in sudo(
+                    "ls -l /root/.ssh/known_hosts")
+            else:
+                assert '-rw-------. 1 root root' in sudo(
+                    "ls -l /root/.ssh/known_hosts")
 
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
