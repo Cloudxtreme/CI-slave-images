@@ -13,17 +13,25 @@ clone the following repos:
 
 export the following environment variables:
 
-    * AWS_KEY_PAIR
 
-    * AWS_KEY_FILENAME
+For EC2:
 
-    * RACKSPACE_KEY_PAIR
 
-    * RACKSPACE_KEY_FILENAME
+    * AWS_KEY_PAIR (the KEY_PAIR to use)
+
+    * AWS_KEY_FILENAME (the full path to your .pem file)
 
     * AWS_SECRET_ACCESS_KEY
 
     * AWS_ACCESS_KEY_ID
+
+
+For Rackspace:
+
+
+    * RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+
+    * RACKSPACE_KEY_FILENAME (the full path to your .pem file)
 
     * OS_USERNAME
 
@@ -45,18 +53,18 @@ create your virtualenv:
 ```
     virtualenv2 venv
     . venv/bin/activate
-    venv/bin/pip2 install -r requirements.txt
+    pip2 install -r requirements.txt --upgrade
 
 ```
 
 then execute as:
 
 ```
-    venv/bin/fab it:cloud=ec2,distribution=centos7
-    venv/bin/fab destroy
-    venv/bin/fab it:cloud=rackspace,distribution=ubuntu14.04
+    fab it:cloud=ec2,distribution=centos7
+    fab destroy
+    fab it:cloud=rackspace,distribution=ubuntu14.04
 
-    venv/bin/fab help
+    fab help
 
     Available commands:
 

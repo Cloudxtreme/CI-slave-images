@@ -5,6 +5,7 @@
 # usage:
 #       fab help
 #
+
 import os
 import yaml
 import re
@@ -16,8 +17,8 @@ from envassert import (file,
                        package,
                        user,
                        group,
-                       port,
-                       detect)
+                       detect,
+                       port)
 from fabric.api import sudo, task, env, run
 from fabric.context_managers import cd, settings, hide
 from fabric.contrib.files import (sed,
@@ -55,6 +56,7 @@ from bookshelf.api_v1 import (add_epel_yum_repository,
                               add_firewalld_port,
                               install_docker,
                               install_centos_development_tools,
+                              reboot,
                               systemd,
                               yum_install,
                               install_system_gem,
@@ -72,8 +74,11 @@ from cuisine import (user_ensure,
 
 
 class MyCookbooks():
-    """ collection of custom fabric tasks used in this fabfile.
-        list them a-z if you must.
+    """ Collection of helpers for fabric tasks
+
+    Contains a collection of helper functions for fabric task used in this
+    fabfile.
+    List them a-z if you must.
     """
 
     def acceptance_tests(self,
@@ -84,7 +89,16 @@ class MyCookbooks():
                          secret_access_key,
                          distribution,
                          username):
+        """ proxy function that calls acceptance tests for speficic OS
 
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
         if 'ubuntu' in distribution.lower():
             self.acceptance_tests_ubuntu14(cloud,
                                            region,
@@ -93,6 +107,16 @@ class MyCookbooks():
                                            secret_access_key,
                                            distribution,
                                            username)
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
         if 'centos' in distribution.lower():
             self.acceptance_tests_centos7(cloud,
@@ -102,6 +126,16 @@ class MyCookbooks():
                                           secret_access_key,
                                           distribution,
                                           username)
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
     def acceptance_tests_centos7(self,
                                  cloud,
@@ -111,102 +145,119 @@ class MyCookbooks():
                                  secret_access_key,
                                  distribution,
                                  username):
+        """ proxy function that calls acceptance tests for speficic OS
 
-        env.platform_family = detect.detect()
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
-        log_green('check that /bin/sh is symlinked to bash')
-        assert file.is_link("/bin/sh")
+        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
+        with settings(host_string=ec2_host):
 
-        # TODO: is this required on centos?
-        log_green('check that our umask matches 022')
-        # assert command.is_work('su - centos -c "umask | grep 022"')
+            env.platform_family = detect.detect()
 
-        log_green("check that tty are not required when sudo'ing")
-        assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
+            log_green('check that /bin/sh is symlinked to bash')
+            assert file.is_link("/bin/sh")
 
-        log_green('check that the environment is not reset on sudo')
-        assert sudo("sudo grep "
-                    "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
-                    " /etc/sudoers")
+            # TODO: is this required on centos?
+            log_green('check that our umask matches 022')
+            # assert command.is_work('su - centos -c "umask | grep 022"')
 
-        log_green('assert that EPEL is installed')
-        assert package.installed('epel-release')
+            log_green("check that tty are not required when sudo'ing")
+            assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
 
-        # TODO:
-        # assert that centos developments tools is installed
+            log_green('check that the environment is not reset on sudo')
+            assert sudo("sudo grep "
+                        "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
+                        " /etc/sudoers")
 
-        log_green('assert that required rpm packages are installed')
-        for pkg in self.centos7_required_packages():
-            if '@' in pkg:
-                continue
-            log_green(' checking package: %s' % pkg)
-            assert package.installed(pkg)
+            log_green('assert that EPEL is installed')
+            assert package.installed('epel-release')
 
-        log_green('check that the zfs repository is installed')
-        assert package.installed('zfs-release')
+            # TODO:
+            # assert that centos developments tools is installed
 
-        log_green('check that zfs from testing repository is installed')
-        assert run(
-            'grep "SPL_DKMS_DISABLE_STRIP=y" /etc/sysconfig/spl')
-        assert run(
-            'grep "ZFS_DKMS_DISABLE_STRIP=y" /etc/sysconfig/zfs')
-        assert package.installed("zfs")
-        assert run('lsmod |grep zfs')
+            log_green('assert that required rpm packages are installed')
+            for pkg in self.centos7_required_packages():
+                if '@' in pkg:
+                    continue
+                log_green(' checking package: %s' % pkg)
+                assert package.installed(pkg)
 
-        log_green('check that SElinux is disabled')
-        assert sudo('getenforce | grep -i "disabled"')
+            log_green('check that the zfs repository is installed')
+            assert package.installed('zfs-release')
 
-        log_green('check that firewalld is enabled')
-        assert sudo("systemctl is-enabled firewalld")
+            log_green('check that zfs from testing repository is installed')
+            assert run(
+                'grep "SPL_DKMS_DISABLE_STRIP=y" /etc/sysconfig/spl')
+            assert run(
+                'grep "ZFS_DKMS_DISABLE_STRIP=y" /etc/sysconfig/zfs')
+            assert package.installed("zfs")
+            assert run('lsmod |grep zfs')
 
-        log_green('check that centos is part of group docker')
-        assert user.exists("centos")
-        assert group.is_exists("docker")
-        assert user.is_belonging_group("centos", "docker")
+            log_green('check that SElinux is disabled')
+            assert sudo('getenforce | grep -i "disabled"')
 
-        log_green('check that nginx is running')
-        assert package.installed('nginx')
-        assert port.is_listening(80, "tcp")
-        assert process.is_up("nginx") is True
-        assert sudo("systemctl is-enabled nginx")
+            log_green('check that firewalld is enabled')
+            assert sudo("systemctl is-enabled firewalld")
 
-        log_green('check that docker is running')
-        assert sudo('rpm -q docker-engine | grep "1.8."')
-        assert process.is_up("docker") is True
-        assert sudo("systemctl is-enabled docker")
+            log_green('check that centos is part of group docker')
+            assert user.exists("centos")
+            assert group.is_exists("docker")
+            assert user.is_belonging_group("centos", "docker")
 
-        log_green('assert that /bin/sh is symlinked to /bin/bash')
-        assert run('ls -l /bin/sh | grep bash')
+            log_green('check that nginx is running')
+            assert package.installed('nginx')
+            assert port.is_listening(80, "tcp")
+            assert process.is_up("nginx") is True
+            assert sudo("systemctl is-enabled nginx")
 
-        log_green('check that /root/.ssh/know_hosts exists')
-        assert '-rw------- 1 root root' in sudo(
-            "ls -l /root/.ssh/known_hosts")
+            log_green('check that docker is running')
+            assert sudo('rpm -q docker-engine | grep "1.8."')
+            assert process.is_up("docker") is True
+            assert sudo("systemctl is-enabled docker")
 
-        log_green('check that fpm is installed')
-        assert 'fpm' in sudo('gem list')
+            log_green('assert that /bin/sh is symlinked to /bin/bash')
+            assert run('ls -l /bin/sh | grep bash')
 
-        log_green('check that images have been downloaded locally')
-        for image in self.local_docker_images():
-            log_green(' checking %s' % image)
-            if ':' in image:
-                parts = image.split(':')
-                expression = parts[0] + '.*' + parts[1]
-                assert re.search(expression, run('docker images'))
+            log_green('check that /root/.ssh/know_hosts exists')
+            if 'disabled' or 'permissive' in sudo('getenforce'):
+                assert '-rw------- 1 root root' in sudo(
+                    "ls -l /root/.ssh/known_hosts")
             else:
-                assert image in run('docker images')
+                assert '-rw-------. 1 root root' in sudo(
+                    "ls -l /root/.ssh/known_hosts")
 
-        log_green('check that git is installed locally')
-        assert file.exists("/usr/local/bin/git")
+            log_green('check that fpm is installed')
+            assert 'fpm' in sudo('gem list')
 
-        log_green('check that /usr/local/bin is in path')
-        assert '/usr/local/bin/git' in run('which git')
+            log_green('check that images have been downloaded locally')
+            for image in self.local_docker_images():
+                log_green(' checking %s' % image)
+                if ':' in image:
+                    parts = image.split(':')
+                    expression = parts[0] + '.*' + parts[1]
+                    assert re.search(expression, run('docker images'))
+                else:
+                    assert image in run('docker images')
 
-        log_green('check that pip is the latest version')
-        assert '7.1.' in run('pip --version')
+            log_green('check that git is installed locally')
+            assert file.exists("/usr/local/bin/git")
 
-        log_green('check that /etc/slave_config exists')
-        assert file.dir_exists("/etc/slave_config")
-        assert file.mode_is("/etc/slave_config", "777")
+            log_green('check that /usr/local/bin is in path')
+            assert '/usr/local/bin/git' in run('which git')
+
+            log_green('check that pip is the latest version')
+            assert '7.1.' in run('pip --version')
+
+            log_green('check that /etc/slave_config exists')
+            assert file.dir_exists("/etc/slave_config")
+            assert file.mode_is("/etc/slave_config", "777")
 
     def acceptance_tests_ubuntu14(self,
                                   cloud,
@@ -216,78 +267,91 @@ class MyCookbooks():
                                   secret_access_key,
                                   distribution,
                                   username):
+        """ proxy function that calls acceptance tests for speficic OS
 
-        env.platform_family = detect.detect()
+            :param string cloud: The cloud type to use 'ec2', 'rackspace'
+            :param string region: Cloud provider's region to deploy instance
+            :param string instance_id: The VM id as known by the cloud provider
+            :param string access_key_id: Typically the API access key
+            :param string secret_access_key: The secret matching the access key
+            :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+            :param string username: ssh username to use
+        """
 
-        log_green('check that /bin/sh is symlinked to bash')
-        assert 'bash' in run('ls -l /bin/sh')
+        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
+        with settings(host_string=ec2_host):
 
-        log_green('check that our umask matches 022')
-        assert '022' in run('umask')
+            env.platform_family = detect.detect()
 
-        log_green('check that docker is enabled')
-        assert 'docker' in run('ls -l /etc/init')
+            log_green('check that /bin/sh is symlinked to bash')
+            assert 'bash' in run('ls -l /bin/sh')
 
-        log_green("check that tty are not required when sudo'ing")
-        assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
+            log_green('check that our umask matches 022')
+            assert '022' in run('umask')
 
-        log_green('check that the environment is not reset on sudo')
-        assert sudo("sudo grep "
-                    "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
-                    " /etc/sudoers")
+            log_green('check that docker is enabled')
+            assert 'docker' in run('ls -l /etc/init')
 
-        log_green('assert that required deb packages are installed')
-        for pkg in self.ubuntu14_required_packages():
-            log_green(' checking package: %s' % pkg)
-            assert package.installed(pkg)
+            log_green("check that tty are not required when sudo'ing")
+            assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
 
-        log_green('check that ubuntu is part of group docker')
-        assert user.exists("ubuntu")
-        assert group.is_exists("docker")
-        assert user.is_belonging_group("ubuntu", "docker")
+            log_green('check that the environment is not reset on sudo')
+            assert sudo("sudo grep "
+                        "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
+                        " /etc/sudoers")
 
-        log_green('check that nginx is running')
-        assert package.installed('nginx')
-        assert port.is_listening(80, "tcp")
-        assert process.is_up("nginx") is True
-        assert 'nginx' in run('ls -l /etc/init.d/')
+            log_green('assert that required deb packages are installed')
+            for pkg in self.ubuntu14_required_packages():
+                log_green(' checking package: %s' % pkg)
+                assert package.installed(pkg)
 
-        log_green('check that docker is running')
-        assert sudo('docker --version | grep "1.8."')
-        assert process.is_up("docker") is True
+            log_green('check that ubuntu is part of group docker')
+            assert user.exists("ubuntu")
+            assert group.is_exists("docker")
+            assert user.is_belonging_group("ubuntu", "docker")
 
-        log_green('assert that /bin/sh is symlinked to /bin/bash')
-        assert run('ls -l /bin/sh | grep bash')
+            log_green('check that nginx is running')
+            assert package.installed('nginx')
+            assert port.is_listening(80, "tcp")
+            assert process.is_up("nginx") is True
+            assert 'nginx' in run('ls -l /etc/init.d/')
 
-        log_green('check that /root/.ssh/know_hosts exists')
-        assert '-rw------- 1 root root' in sudo(
-            "ls -l /root/.ssh/known_hosts")
+            log_green('check that docker is running')
+            assert sudo('docker --version | grep "1.8."')
+            assert process.is_up("docker") is True
 
-        log_green('check that fpm is installed')
-        assert 'fpm' in sudo('gem list')
+            log_green('assert that /bin/sh is symlinked to /bin/bash')
+            assert run('ls -l /bin/sh | grep bash')
 
-        log_green('check that images have been downloaded locally')
-        for image in self.local_docker_images():
-            log_green(' checking %s' % image)
-            if ':' in image:
-                parts = image.split(':')
-                expression = parts[0] + '.*' + parts[1]
-                assert re.search(expression, run('docker images'))
-            else:
-                assert image in run('docker images')
+            log_green('check that /root/.ssh/know_hosts exists')
+            assert '-rw------- 1 root root' in sudo(
+                "ls -l /root/.ssh/known_hosts")
 
-        log_green('check that git is installed locally')
-        assert file.exists("/usr/local/bin/git")
+            log_green('check that fpm is installed')
+            assert 'fpm' in sudo('gem list')
 
-        log_green('check that /usr/local/bin is in path')
-        assert '/usr/local/bin/git' in run('which git')
+            log_green('check that images have been downloaded locally')
+            for image in self.local_docker_images():
+                log_green(' checking %s' % image)
+                if ':' in image:
+                    parts = image.split(':')
+                    expression = parts[0] + '.*' + parts[1]
+                    assert re.search(expression, sudo('docker images'))
+                else:
+                    assert image in sudo('docker images')
 
-        log_green('check that pip is the latest version')
-        assert '7.1.' in run('pip --version')
+            log_green('check that git is installed locally')
+            assert file.exists("/usr/local/bin/git")
 
-        log_green('check that /etc/slave_config exists')
-        assert file.dir_exists("/etc/slave_config")
-        assert file.mode_is("/etc/slave_config", "777")
+            log_green('check that /usr/local/bin is in path')
+            assert '/usr/local/bin/git' in run('which git')
+
+            log_green('check that pip is the latest version')
+            assert '7.1.' in run('pip --version')
+
+            log_green('check that /etc/slave_config exists')
+            assert file.dir_exists("/etc/slave_config")
+            assert file.mode_is("/etc/slave_config", "777")
 
     def add_user_to_docker_group(self):
         """ make sure the user running jenkins is part of the docker group """
@@ -295,12 +359,12 @@ class MyCookbooks():
         data = load_state_from_disk()
         with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                       warn_only=True, capture=True):
-            if 'centos' in data['username']:
+            if 'centos' in data['distribution']:
                 user_ensure('centos', home='/home/centos', shell='/bin/bash')
                 group_ensure('docker', gid=55)
                 group_user_ensure('docker', 'centos')
 
-            if 'ubuntu' in data['username']:
+            if 'ubuntu' in data['distribution']:
                 user_ensure('ubuntu', home='/home/ubuntu', shell='/bin/bash')
                 group_ensure('docker', gid=55)
                 group_user_ensure('docker', 'ubuntu')
@@ -329,10 +393,18 @@ class MyCookbooks():
             # installs a bunch of required packages
             yum_install(packages=self.centos7_required_packages())
 
+            # installing the source for the centos kernel is a bit of an odd
+            # process these days.
             yum_install_from_url(
                 "http://vault.centos.org/7.1.1503/updates/Source/SPackages/"
                 "kernel-3.10.0-229.11.1.el7.src.rpm",
                 "non-available-kernel-src")
+
+            # we want to be running the latest kernel before installing ZFS
+            # so, lets reboot and make sure we do.
+            with settings(warn_only=True):
+                reboot()
+            wait_for_ssh(load_state_from_disk()['ip_address'])
 
             # install the latest ZFS from testing
             add_zfs_yum_repository()
@@ -577,37 +649,44 @@ class MyCookbooks():
                 "libsvn-perl",
                 "ruby-dev"]
 
-    def check_for_missing_environment_variables(self):
-        """ double checks that the minimum environment variables have been
-            configured correctly.
-        """
-        env_var_missing = []
-        for env_var in ['AWS_KEY_PAIR',
-                        'AWS_KEY_FILENAME',
-                        'RACKSPACE_KEY_PAIR',
-                        'RACKSPACE_KEY_FILENAME',
-                        'AWS_SECRET_ACCESS_KEY',
-                        'AWS_ACCESS_KEY_ID',
-                        'OS_USERNAME',
-                        'OS_TENANT_NAME',
-                        'OS_PASSWORD',
-                        'OS_AUTH_URL',
-                        'OS_AUTH_SYSTEM',
-                        'OS_REGION_NAME',
-                        'OS_NO_CACHE']:
-            if env_var not in os.environ:
-                env_var_missing.append(env_var)
+    def check_for_missing_environment_variables(self, cloud_type=None):
+        """ checks for required environment variables
 
-        if env_var_missing:
-            print('the following environment variables must be set:')
-            for env_var in env_var_missing:
-                print(env_var)
-            return True
+        Double checks that the minimum environment variables have been
+        configured correctly.
+
+        :param string cloud_type: The cloud type to use 'ec2', 'rackspace'
+        """
+        if not cloud_type:
+            cloud_type = []
+
+        cloud_vars = {'ec2': ['AWS_KEY_PAIR',
+                              'AWS_KEY_FILENAME',
+                              'AWS_SECRET_ACCESS_KEY',
+                              'AWS_ACCESS_KEY_ID'],
+
+                      'rackspace': ['OS_USERNAME',
+                                    'OS_TENANT_NAME',
+                                    'OS_PASSWORD',
+                                    'OS_AUTH_URL',
+                                    'OS_AUTH_SYSTEM',
+                                    'OS_REGION_NAME',
+                                    'RACKSPACE_KEY_PAIR',
+                                    'RACKSPACE_KEY_FILENAME',
+                                    'OS_NO_CACHE']
+                      }
+
+        for cloud in cloud_type:
+            if not set(cloud_vars[cloud]).issubset(set(os.environ)):
+                return False
+        return True
 
     def create_etc_slave_config(self):
-        """ /etc/slave_config is used by jenkins slave_plugin.
-            it allows files to be copied from the master to the slave.
-            These files are copied to /etc/slave_config on the slave.
+        """ creates /etc/slave_config directory on master
+
+        /etc/slave_config is used by jenkins slave_plugin.
+        it allows files to be copied from the master to the slave.
+        These files are copied to /etc/slave_config on the slave.
         """
         # TODO: fix these permissions, likely ubuntu/centos/jenkins users
         # need read/write permissions.
@@ -620,8 +699,10 @@ class MyCookbooks():
         f_ec2()
 
     def fix_umask(self):
-        """ fix an issue with the the build package process where it fails, due
-            the files in the produced package have the wrong permissions.
+        """ Sets umask to 022
+
+        fix an issue with the the build package process where it fails, due
+        the files in the produced package have the wrong permissions.
         """
         with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                       warn_only=True, capture=True):
@@ -642,8 +723,23 @@ class MyCookbooks():
                 file_append(filename=f, text='umask 022')
                 file_attribs(f, mode=750, owner=data['username'])
 
+    def get_cloud_environment(self):
+        """ returns cloud_type from command line arguments
+
+        returns the cloud type from a fab execution string:
+        fab it:cloud=rackspace,distribution=centos7
+        """
+        clouds = []
+        for action in sys.argv:
+            if 'cloud=ec2' in action:
+                clouds.append('ec2')
+            if 'cloud=rackspace' in action:
+                clouds.append('rackspace')
+        return clouds
+
     def install_nginx(self):
         """ installs nginx
+
             nginx is used for the packaging process.
             the acceptance tests will produce a rpm/deb package.
             that package is then made available on http so that the acceptance
@@ -686,10 +782,12 @@ class MyCookbooks():
         return secrets
 
     def symlink_sh_to_bash(self):
-        """ jenkins seems to default to /bin/dash instead of bash
-            on ubuntu. There is a shell config parameter that I haven't
-            to set, so in order to force ubuntu nodes to execute jobs
-            using bash, let's symlink /bin/sh -> /bin/bash
+        """ Forces /bin/sh to point to /bin/bash
+
+        jenkins seems to default to /bin/dash instead of bash
+        on ubuntu. There is a shell config parameter that I haven't
+        to set, so in order to force ubuntu nodes to execute jobs
+        using bash, let's symlink /bin/sh -> /bin/bash
         """
         # read distribution from state file
         data = load_state_from_disk()
@@ -705,131 +803,143 @@ def create_image():
      sec, wday, yday, isdst) = datetime.utcnow().timetuple()
     date = "%s%s%s%s%s" % (year, month, day, hour, mins)
 
-    if is_there_state():
-        data = load_state_from_disk()
-        cloud_type = data['cloud_type']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_name = C[cloud_type][distribution]['instance_name']
-        description = C[cloud_type][distribution]['description']
+    data = load_state_from_disk()
+    cloud_type = data['cloud_type']
+    distribution = data['distribution'] + data['os_release']['VERSION_ID']
+    access_key_id = C[cloud_type][distribution]['access_key_id']
+    secret_access_key = C[cloud_type][distribution]['secret_access_key']
+    instance_name = C[cloud_type][distribution]['instance_name']
+    description = C[cloud_type][distribution]['description']
 
-        f_create_image(cloud=cloud_type,
-                       region=data['region'],
-                       access_key_id=access_key_id,
-                       secret_access_key=secret_access_key,
-                       instance_id=data['id'],
-                       name=instance_name + "_" + date,
-                       description=description)
+    f_create_image(cloud=cloud_type,
+                   region=data['region'],
+                   access_key_id=access_key_id,
+                   secret_access_key=secret_access_key,
+                   instance_id=data['id'],
+                   name=instance_name + "_" + date,
+                   description=description)
 
 
 @task
 def destroy():
     """ destroy an existing instance """
-    if is_there_state():
-        data = load_state_from_disk()
-        cloud_type = data['cloud_type']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_id = data['id']
-        env.user = data['username']
-        env.key_filename = C[cloud_type][distribution]['key_filename']
+    data = load_state_from_disk()
+    cloud_type = data['cloud_type']
+    distribution = data['distribution'] + data['os_release']['VERSION_ID']
+    region = data['region']
+    access_key_id = C[cloud_type][distribution]['access_key_id']
+    secret_access_key = C[cloud_type][distribution]['secret_access_key']
+    instance_id = data['id']
+    env.user = data['username']
+    env.key_filename = C[cloud_type][distribution]['key_filename']
 
-        f_destroy(cloud=cloud_type,
-                  region=region,
-                  instance_id=instance_id,
-                  access_key_id=access_key_id,
-                  secret_access_key=secret_access_key)
+    f_destroy(cloud=cloud_type,
+              region=region,
+              instance_id=instance_id,
+              access_key_id=access_key_id,
+              secret_access_key=secret_access_key)
 
 
 @task
 def down(cloud=None):
     """ halt an existing instance """
-    if is_there_state():
-        data = load_state_from_disk()
-        region = data['region']
-        cloud_type = data['cloud_type']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_id = data['id']
-        env.key_filename = C[cloud_type][distribution]['key_filename']
+    data = load_state_from_disk()
+    region = data['region']
+    cloud_type = data['cloud_type']
+    distribution = data['distribution'] + data['os_release']['VERSION_ID']
+    access_key_id = C[cloud_type][distribution]['access_key_id']
+    secret_access_key = C[cloud_type][distribution]['secret_access_key']
+    instance_id = data['id']
+    env.key_filename = C[cloud_type][distribution]['key_filename']
 
-        cookbook = MyCookbooks()
-        if data['cloud_type'] == 'ec2':
-            cookbook.ec2()
-        if data['cloud_type'] == 'rackspace':
-            cookbook.rackspace()
-        f_down(cloud=cloud_type,
-               instance_id=instance_id,
-               region=region,
-               access_key_id=access_key_id,
-               secret_access_key=secret_access_key)
+    cookbook = MyCookbooks()
+    if data['cloud_type'] == 'ec2':
+        cookbook.ec2()
+    if data['cloud_type'] == 'rackspace':
+        cookbook.rackspace()
+    f_down(cloud=cloud_type,
+           instance_id=instance_id,
+           region=region,
+           access_key_id=access_key_id,
+           secret_access_key=secret_access_key)
 
 
 @task(default=True)
 def help():
     """ help """
     print("""
-          usage: fab <action> <action>
+          usage: fab <action>[:arguments] <action>[:arguments]
 
-                 # shows this page
-                 fab help
+            # shows this page
+            $ fab help
 
-                 # does the whole thing in one go
-                 fab it:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
+            # does the whole thing in one go
+            $ fab it:cloud=[ec2|rackspace],distribution=[centos7|ubuntu14.04]
 
-                 # boots an existing instance
-                 fab up
+            # boots an existing instance
+            $ fab up
 
-                 # creates a new instance
-                 fab up:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
+            # creates a new instance
+            $ fab up:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
 
-                 # installs packages on an existing instance
-                 fab bootstrap:distribution=<centos7|ubuntu14.04>
+            # installs packages on an existing instance
+            $ fab bootstrap:distribution=<centos7|ubuntu14.04>
 
-                 # creates a new ami
-                fab create_image
+            # creates a new ami
+            $ fab create_image
 
-                 # destroy the box
-                 fab destroy
+            # destroy the box
+            $ fab destroy
 
-                 # power down the box
-                 fab down
+            # power down the box
+            $ fab down
 
-                 # ssh to the instance
-                 fab ssh
+            # ssh to the instance
+            $ fab ssh
 
-                 # execute a command on the instance
-                 fab ssh:'ls -l'
+            # execute a command on the instance
+            $ fab ssh:'ls -l'
 
-                 # run acceptance tests against new instance
-                 fab tests
+            # run acceptance tests against new instance
+            $ fab tests
 
-                 metadata state is stored locally in state.json.
-                 the following environment variables must be set:
-                 # AWS_AMI
-                 # AWS_INSTANCE_TYPE
-                 # AWS_ACCESS_KEY_ID
-                 # AWS_ACCESS_KEY_FILENAME
-                 # AWS_ACCESS_KEY_PAIR
-                 # AWS_ACCESS_REGION
-                 # AWS_SECRET_ACCESS_KEY
-                 # OS_USERNAME
-                 # OS_TENANT_NAME
-                 # OS_AUTH_SYSTEM
-                 # OS_PASSWORD
-                 # OS_AUTH_URL
-                 # OS_REGION_NAME
-                 # OS_NO_CACHE
+            The following environment variables must be set:
+
+            For AWS:
+            http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
+
+            # AWS_ACCESS_KEY_ID
+            # AWS_KEY_FILENAME (the full path to your private key file)
+            # AWS_KEY_PAIR (the KEY_PAIR to use)
+            # AWS_SECRET_ACCESS_KEY
+            # AWS_ACCESS_REGION (optional)
+            # AWS_AMI (optional)
+            # AWS_INSTANCE_TYPE (optional)
+
+            For Rackspace:
+            http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
+
+            # OS_USERNAME
+            # OS_TENANT_NAME
+            # OS_PASSWORD
+            # OS_NO_CACHE
+            # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+            # RACKSPACE_KEY_FILENAME (the full path to your private key file)
+            # OS_AUTH_SYSTEM (optional)
+            # OS_AUTH_URL (optional)
+            # OS_REGION_NAME (optional)
+
+            metadata state is stored locally in state.json.
           """)
 
 
 @task
 def it(cloud, distribution):
-    """ runs the full stack """
+    """ runs the full stack
+
+    :param string cloud: The cloud type to use 'ec2', 'rackspace'
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
     cookbook = MyCookbooks()
     if cloud == 'ec2':
         cookbook.ec2()
@@ -839,18 +949,16 @@ def it(cloud, distribution):
     up(cloud=cloud, distribution=distribution)
     bootstrap(distribution)
     tests()
-
     create_image()
     destroy()
 
 
 @task
 def bootstrap(distribution=None):
-    """ bootstraps an existing running instance """
-    # if we get called without parameters, then we require a state.json file
-    if (is_there_state() is False):
-        help()
-        sys.exit(1)
+    """ bootstraps an existing running instance
+
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
 
     # read distribution from state file
     data = load_state_from_disk()
@@ -876,85 +984,85 @@ def bootstrap(distribution=None):
 @task
 def status():
     """ returns current status of the instance """
-    if is_there_state():
-        data = load_state_from_disk()
-        cloud_type = data['cloud_type']
-        username = data['username']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_id = data['id']
-        env.user = data['username']
-        env.key_filename = C[cloud_type][distribution]['key_filename']
+    data = load_state_from_disk()
+    cloud_type = data['cloud_type']
+    username = data['username']
+    distribution = data['distribution'] + data['os_release']['VERSION_ID']
+    region = data['region']
+    access_key_id = C[cloud_type][distribution]['access_key_id']
+    secret_access_key = C[cloud_type][distribution]['secret_access_key']
+    instance_id = data['id']
+    env.user = data['username']
+    env.key_filename = C[cloud_type][distribution]['key_filename']
 
-        if data['cloud_type'] == 'ec2':
-            cookbook.ec2()
-        if data['cloud_type'] == 'rackspace':
-            cookbook.rackspace()
+    if data['cloud_type'] == 'ec2':
+        cookbook.ec2()
+    if data['cloud_type'] == 'rackspace':
+        cookbook.rackspace()
 
-        f_status(cloud=cloud_type,
-                 region=region,
-                 instance_id=instance_id,
-                 access_key_id=access_key_id,
-                 secret_access_key=secret_access_key,
-                 username=username)
+    f_status(cloud=cloud_type,
+             region=region,
+             instance_id=instance_id,
+             access_key_id=access_key_id,
+             secret_access_key=secret_access_key,
+             username=username)
 
 
 @task
 def ssh(*cli):
-    """ opens an ssh connection to the instance """
-    if is_there_state():
-        data = load_state_from_disk()
-        cloud_type = data['cloud_type']
-        ip_address = data['ip_address']
-        username = data['username']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        key_filename = C[cloud_type][distribution]['key_filename']
+    """ opens an ssh connection to the instance
 
-        ssh_session(key_filename,
-                    username,
-                    ip_address,
-                    *cli)
+    :param string cli: the commands to run on the host
+    """
+
+    data = load_state_from_disk()
+    cloud_type = data['cloud_type']
+    ip_address = data['ip_address']
+    username = data['username']
+    distribution = data['distribution'] + data['os_release']['VERSION_ID']
+    key_filename = C[cloud_type][distribution]['key_filename']
+
+    ssh_session(key_filename,
+                username,
+                ip_address,
+                *cli)
 
 
 @task
 def tests():
     """ run tests against an existing instance """
-    if is_there_state():
-        data = load_state_from_disk()
-        cloud_type = data['cloud_type']
-        username = data['username']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_id = data['id']
-        env.user = data['username']
-        env.key_filename = C[cloud_type][distribution]['key_filename']
+    data = load_state_from_disk()
+    cloud_type = data['cloud_type']
+    username = data['username']
+    distribution = data['distribution'] + data['os_release']['VERSION_ID']
+    region = data['region']
+    access_key_id = C[cloud_type][distribution]['access_key_id']
+    secret_access_key = C[cloud_type][distribution]['secret_access_key']
+    instance_id = data['id']
+    env.user = data['username']
+    env.key_filename = C[cloud_type][distribution]['key_filename']
 
-        if data['cloud_type'] == 'ec2':
-            cookbook.ec2()
-        if data['cloud_type'] == 'rackspace':
-            cookbook.rackspace()
+    if data['cloud_type'] == 'ec2':
+        cookbook.ec2()
+    if data['cloud_type'] == 'rackspace':
+        cookbook.rackspace()
 
-        cookbook.acceptance_tests(cloud=cloud_type,
-                                  region=region,
-                                  instance_id=instance_id,
-                                  access_key_id=access_key_id,
-                                  secret_access_key=secret_access_key,
-                                  distribution=distribution,
-                                  username=username)
+    cookbook.acceptance_tests(cloud=cloud_type,
+                              region=region,
+                              instance_id=instance_id,
+                              access_key_id=access_key_id,
+                              secret_access_key=secret_access_key,
+                              distribution=distribution,
+                              username=username)
 
 
 @task
 def up(cloud=None, distribution=None):
-    """ boots a new instance on amazon or rackspace """
+    """ boots a new instance on amazon or rackspace
 
-    # if we get called without parameters, then we require a state.json file
-    if (cloud is None or distribution is None) and (is_there_state() is False):
-        help()
-        sys.exit(1)
+    :param string cloud: The cloud type to use 'ec2', 'rackspace'
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
 
     cookbook = MyCookbooks()
 
@@ -1009,8 +1117,33 @@ def up(cloud=None, distribution=None):
     ___main___
 """
 cookbook = MyCookbooks()
+
+# is this a fab help ?
+if 'help' in sys.argv:
+    help()
+    exit(1)
+
 # make sure we have all the required variables available in the environment
-if cookbook.check_for_missing_environment_variables():
+list_of_clouds = []
+
+# look up our state.json file, and load the cloud_type from there
+if is_there_state():
+    data = load_state_from_disk()
+    list_of_clouds.append(data['cloud_type'])
+else:
+    # no state.json, we expect to find a cloud='' option in our argv
+    list_of_clouds = cookbook.get_cloud_environment()
+
+if not len(list_of_clouds):
+    # sounds like we are asking for a task that require cloud environment
+    # variables and we don't have them defined, let's inform the user what
+    # variables we are looking for.
+    help()
+
+# right, we have a 'cloud_type' in list_of_clouds, lets find out if the env
+# variables we need for that cloud have been defined.
+if not cookbook.check_for_missing_environment_variables(list_of_clouds):
+    help()
     exit(1)
 
 # retrieve some of the secrets from the segredos dict
@@ -1018,29 +1151,39 @@ jenkins_plugin_dict = cookbook.segredos()[
     'env']['default']['jenkins']['clouds']['jclouds_plugin'][0]
 
 # soaks up the environment variables
-ec2_instance_type = os.getenv('AWS_INSTANCE_TYPE', 't2.medium')
-ec2_key_filename = os.environ['AWS_KEY_FILENAME']  # path to ssh key
-ec2_key_pair = os.environ['AWS_KEY_PAIR']
-ec2_region = os.getenv('AWS_REGION', 'us-west-2')
-ec2_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
-ec2_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
-ec2_key_filename = os.environ['AWS_KEY_FILENAME']  # path to ssh key
+# AWS environment variables, see:
+# http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
+if 'ec2' in list_of_clouds:
+    ec2_instance_type = os.getenv('AWS_INSTANCE_TYPE', 't2.medium')
+    ec2_key_filename = os.environ['AWS_KEY_FILENAME']  # path to ssh key
+    ec2_key_pair = os.environ['AWS_KEY_PAIR']
+    ec2_region = os.getenv('AWS_REGION', 'us-west-2')
+    ec2_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
+    ec2_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
+    ec2_key_filename = os.environ['AWS_KEY_FILENAME']
 
-rackspace_username = os.environ['OS_USERNAME']
-rackspace_tenant_name = os.environ['OS_TENANT_NAME']
-rackspace_password = os.environ['OS_PASSWORD']
-rackspace_auth_url = os.getenv('OS_AUTH_URL',
-                               'https://identity.api.rackspacecloud.com/v2.0/')
-rackspace_auth_system = os.getenv('OS_AUTH_SYSTEM', 'rackspace')
-rackspace_region = os.getenv('OS_REGION_NAME', 'DFW')
-rackspace_flavor = '1GB Standard Instance'
-rackspace_key_pair = os.environ['RACKSPACE_KEY_PAIR']
-rackspace_public_key = jenkins_plugin_dict['publicKey'][0]
-rackspace_key_filename = os.environ['RACKSPACE_KEY_FILENAME']  # path to ssh key
+# Rackspace environment variables, see:
+# http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
+if 'rackspace' in list_of_clouds:
+    rackspace_username = os.environ['OS_USERNAME']
+    rackspace_tenant_name = os.environ['OS_TENANT_NAME']
+    rackspace_password = os.environ['OS_PASSWORD']
+    rackspace_auth_url = os.getenv('OS_AUTH_URL',
+                                   'https://identity.api.rackspacecloud.com/'
+                                   'v2.0/')
+    rackspace_auth_system = os.getenv('OS_AUTH_SYSTEM', 'rackspace')
+    rackspace_region = os.getenv('OS_REGION_NAME', 'DFW')
+    rackspace_flavor = '1GB Standard Instance'
+    rackspace_key_pair = os.environ['RACKSPACE_KEY_PAIR']
+    rackspace_public_key = jenkins_plugin_dict['publicKey'][0]
+    rackspace_key_filename = os.environ['RACKSPACE_KEY_FILENAME']
 
-# define what your boxes should look like below
-C = {
-    'ec2': {
+# We define a dictionary containing API secrets, disk sizes, base amis,
+# and other bits and pieces that we will use for creating a new EC2 or Rackspace
+# instance and authenticate over ssh.
+C = {}
+if 'ec2' in list_of_clouds:
+    C['ec2'] = {
         'centos7': {
             'ami': 'ami-c7d092f7',
             'username': 'centos',
@@ -1072,10 +1215,11 @@ C = {
             'description': 'jenkins_slave_ubuntu14_ondemand',
             'key_filename': ec2_key_filename,
             'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
-        },
+        }
+    }
 
-    },
-    'rackspace': {
+if 'rackspace' in list_of_clouds:
+    C['rackspace'] = {
         'centos7': {
             'ami': 'CentOS 7 (PVHVM)',
             'username': 'root',
@@ -1117,14 +1261,19 @@ C = {
             'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }
-}
 
+# Modify some global Fabric behaviours:
+# Let's disable known_hosts, since on Clouds that behaviour can get in the
+# way as we continuosly destroy/create boxes.
 env.disable_known_hosts = True
-env.use_ssh_config = True
+env.use_ssh_config = False
+env.eagerly_disconnect = True
 
 # We store the state in a local file as we need to keep track of the
 # ec2 instance id and ip_address so that we can run provision multiple times
-if is_there_state() is False:
+# By using some metadata locally about the VM we get a similar workflow to
+# vagrant (up, down, destroy, bootstrap).
+if not is_there_state():
     pass
 else:
     data = load_state_from_disk()
