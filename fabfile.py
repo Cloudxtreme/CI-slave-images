@@ -89,7 +89,16 @@ class MyCookbooks():
                          secret_access_key,
                          distribution,
                          username):
+        """ proxy function that calls acceptance tests for speficic OS
 
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
         if 'ubuntu' in distribution.lower():
             self.acceptance_tests_ubuntu14(cloud,
                                            region,
@@ -98,6 +107,16 @@ class MyCookbooks():
                                            secret_access_key,
                                            distribution,
                                            username)
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
         if 'centos' in distribution.lower():
             self.acceptance_tests_centos7(cloud,
@@ -107,6 +126,16 @@ class MyCookbooks():
                                           secret_access_key,
                                           distribution,
                                           username)
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
     def acceptance_tests_centos7(self,
                                  cloud,
@@ -116,6 +145,16 @@ class MyCookbooks():
                                  secret_access_key,
                                  distribution,
                                  username):
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
         ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
         with settings(host_string=ec2_host):
@@ -228,6 +267,16 @@ class MyCookbooks():
                                   secret_access_key,
                                   distribution,
                                   username):
+        """ proxy function that calls acceptance tests for speficic OS
+
+            :param string cloud: The cloud type to use 'ec2', 'rackspace'
+            :param string region: Cloud provider's region to deploy instance
+            :param string instance_id: The VM id as known by the cloud provider
+            :param string access_key_id: Typically the API access key
+            :param string secret_access_key: The secret matching the access key
+            :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+            :param string username: ssh username to use
+        """
 
         ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
         with settings(host_string=ec2_host):
@@ -605,6 +654,8 @@ class MyCookbooks():
 
         Double checks that the minimum environment variables have been
         configured correctly.
+
+        :param string cloud_type: The cloud type to use 'ec2', 'rackspace'
         """
         if not cloud_type:
             cloud_type = []
@@ -884,7 +935,11 @@ def help():
 
 @task
 def it(cloud, distribution):
-    """ runs the full stack """
+    """ runs the full stack
+
+    :param string cloud: The cloud type to use 'ec2', 'rackspace'
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
     cookbook = MyCookbooks()
     if cloud == 'ec2':
         cookbook.ec2()
@@ -900,7 +955,10 @@ def it(cloud, distribution):
 
 @task
 def bootstrap(distribution=None):
-    """ bootstraps an existing running instance """
+    """ bootstraps an existing running instance
+
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
 
     # read distribution from state file
     data = load_state_from_disk()
@@ -952,7 +1010,11 @@ def status():
 
 @task
 def ssh(*cli):
-    """ opens an ssh connection to the instance """
+    """ opens an ssh connection to the instance
+
+    :param string cli: the commands to run on the host
+    """
+
     data = load_state_from_disk()
     cloud_type = data['cloud_type']
     ip_address = data['ip_address']
@@ -996,7 +1058,11 @@ def tests():
 
 @task
 def up(cloud=None, distribution=None):
-    """ boots a new instance on amazon or rackspace """
+    """ boots a new instance on amazon or rackspace
+
+    :param string cloud: The cloud type to use 'ec2', 'rackspace'
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
 
     cookbook = MyCookbooks()
 
