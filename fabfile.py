@@ -74,8 +74,11 @@ from cuisine import (user_ensure,
 
 
 class MyCookbooks():
-    """ collection of custom fabric tasks used in this fabfile.
-        list them a-z if you must.
+    """ Collection of helpers for fabric tasks
+
+    Contains a collection of helper functions for fabric task used in this
+    fabfile.
+    List them a-z if you must.
     """
 
     def acceptance_tests(self,
@@ -86,7 +89,16 @@ class MyCookbooks():
                          secret_access_key,
                          distribution,
                          username):
+        """ proxy function that calls acceptance tests for speficic OS
 
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
         if 'ubuntu' in distribution.lower():
             self.acceptance_tests_ubuntu14(cloud,
                                            region,
@@ -95,6 +107,16 @@ class MyCookbooks():
                                            secret_access_key,
                                            distribution,
                                            username)
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
         if 'centos' in distribution.lower():
             self.acceptance_tests_centos7(cloud,
@@ -104,6 +126,16 @@ class MyCookbooks():
                                           secret_access_key,
                                           distribution,
                                           username)
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
     def acceptance_tests_centos7(self,
                                  cloud,
@@ -113,6 +145,16 @@ class MyCookbooks():
                                  secret_access_key,
                                  distribution,
                                  username):
+        """ proxy function that calls acceptance tests for speficic OS
+
+        :param string cloud: The cloud type to use 'ec2', 'rackspace'
+        :param string region: Cloud provider's region to deploy instance
+        :param string instance_id: The VM id as known by the cloud provider
+        :param string access_key_id: Typically the API access key
+        :param string secret_access_key: The secret matching the access key
+        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+        :param string username: ssh username to use
+        """
 
         ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
         with settings(host_string=ec2_host):
@@ -184,8 +226,12 @@ class MyCookbooks():
             assert run('ls -l /bin/sh | grep bash')
 
             log_green('check that /root/.ssh/know_hosts exists')
-            assert '-rw-------. 1 root root' in sudo(
-                "ls -l /root/.ssh/known_hosts")
+            if 'disabled' or 'permissive' in sudo('getenforce'):
+                assert '-rw------- 1 root root' in sudo(
+                    "ls -l /root/.ssh/known_hosts")
+            else:
+                assert '-rw-------. 1 root root' in sudo(
+                    "ls -l /root/.ssh/known_hosts")
 
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
@@ -221,6 +267,16 @@ class MyCookbooks():
                                   secret_access_key,
                                   distribution,
                                   username):
+        """ proxy function that calls acceptance tests for speficic OS
+
+            :param string cloud: The cloud type to use 'ec2', 'rackspace'
+            :param string region: Cloud provider's region to deploy instance
+            :param string instance_id: The VM id as known by the cloud provider
+            :param string access_key_id: Typically the API access key
+            :param string secret_access_key: The secret matching the access key
+            :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+            :param string username: ssh username to use
+        """
 
         ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
         with settings(host_string=ec2_host):
@@ -593,11 +649,16 @@ class MyCookbooks():
                 "libsvn-perl",
                 "ruby-dev"]
 
-    def check_for_missing_environment_variables(self, cloud_type=[]):
-        """ double checks that the minimum environment variables have been
-            configured correctly.
+    def check_for_missing_environment_variables(self, cloud_type=None):
+        """ checks for required environment variables
+
+        Double checks that the minimum environment variables have been
+        configured correctly.
+
+        :param string cloud_type: The cloud type to use 'ec2', 'rackspace'
         """
-        env_var_missing = []
+        if not cloud_type:
+            cloud_type = []
 
         cloud_vars = {'ec2': ['AWS_KEY_PAIR',
                               'AWS_KEY_FILENAME',
@@ -616,17 +677,16 @@ class MyCookbooks():
                       }
 
         for cloud in cloud_type:
-            for env_var in cloud_vars[cloud]:
-                if env_var not in os.environ:
-                    env_var_missing.append(env_var)
-
-        if env_var_missing:
-            return False
+            if not set(cloud_vars[cloud]).issubset(set(os.environ)):
+                return False
+        return True
 
     def create_etc_slave_config(self):
-        """ /etc/slave_config is used by jenkins slave_plugin.
-            it allows files to be copied from the master to the slave.
-            These files are copied to /etc/slave_config on the slave.
+        """ creates /etc/slave_config directory on master
+
+        /etc/slave_config is used by jenkins slave_plugin.
+        it allows files to be copied from the master to the slave.
+        These files are copied to /etc/slave_config on the slave.
         """
         # TODO: fix these permissions, likely ubuntu/centos/jenkins users
         # need read/write permissions.
@@ -639,8 +699,10 @@ class MyCookbooks():
         f_ec2()
 
     def fix_umask(self):
-        """ fix an issue with the the build package process where it fails, due
-            the files in the produced package have the wrong permissions.
+        """ Sets umask to 022
+
+        fix an issue with the the build package process where it fails, due
+        the files in the produced package have the wrong permissions.
         """
         with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                       warn_only=True, capture=True):
@@ -661,22 +723,23 @@ class MyCookbooks():
                 file_append(filename=f, text='umask 022')
                 file_attribs(f, mode=750, owner=data['username'])
 
-    def get_cloud_environment(self, string):
-        """
-            returns the cloud type from a fab execution string:
-            fab it:cloud=rackspace,distribution=centos7
+    def get_cloud_environment(self):
+        """ returns cloud_type from command line arguments
+
+        returns the cloud type from a fab execution string:
+        fab it:cloud=rackspace,distribution=centos7
         """
         clouds = []
-        tasks = string.split(' ')
-        for _task in tasks:
-            if 'cloud=ec2' in _task:
+        for action in sys.argv:
+            if 'cloud=ec2' in action:
                 clouds.append('ec2')
-            if 'cloud=rackspace' in _task:
+            if 'cloud=rackspace' in action:
                 clouds.append('rackspace')
         return clouds
 
     def install_nginx(self):
         """ installs nginx
+
             nginx is used for the packaging process.
             the acceptance tests will produce a rpm/deb package.
             that package is then made available on http so that the acceptance
@@ -719,10 +782,12 @@ class MyCookbooks():
         return secrets
 
     def symlink_sh_to_bash(self):
-        """ jenkins seems to default to /bin/dash instead of bash
-            on ubuntu. There is a shell config parameter that I haven't
-            to set, so in order to force ubuntu nodes to execute jobs
-            using bash, let's symlink /bin/sh -> /bin/bash
+        """ Forces /bin/sh to point to /bin/bash
+
+        jenkins seems to default to /bin/dash instead of bash
+        on ubuntu. There is a shell config parameter that I haven't
+        to set, so in order to force ubuntu nodes to execute jobs
+        using bash, let's symlink /bin/sh -> /bin/bash
         """
         # read distribution from state file
         data = load_state_from_disk()
@@ -844,8 +909,8 @@ def help():
             http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
 
             # AWS_ACCESS_KEY_ID
-            # AWS_KEY_FILENAME
-            # AWS_KEY_PAIR
+            # AWS_KEY_FILENAME (the full path to your private key file)
+            # AWS_KEY_PAIR (the KEY_PAIR to use)
             # AWS_SECRET_ACCESS_KEY
             # AWS_ACCESS_REGION (optional)
             # AWS_AMI (optional)
@@ -858,8 +923,8 @@ def help():
             # OS_TENANT_NAME
             # OS_PASSWORD
             # OS_NO_CACHE
-            # RACKSPACE_KEY_PAIR
-            # RACKSPACE_KEY_FILENAME
+            # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+            # RACKSPACE_KEY_FILENAME (the full path to your private key file)
             # OS_AUTH_SYSTEM (optional)
             # OS_AUTH_URL (optional)
             # OS_REGION_NAME (optional)
@@ -870,7 +935,11 @@ def help():
 
 @task
 def it(cloud, distribution):
-    """ runs the full stack """
+    """ runs the full stack
+
+    :param string cloud: The cloud type to use 'ec2', 'rackspace'
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
     cookbook = MyCookbooks()
     if cloud == 'ec2':
         cookbook.ec2()
@@ -886,7 +955,10 @@ def it(cloud, distribution):
 
 @task
 def bootstrap(distribution=None):
-    """ bootstraps an existing running instance """
+    """ bootstraps an existing running instance
+
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
 
     # read distribution from state file
     data = load_state_from_disk()
@@ -938,7 +1010,11 @@ def status():
 
 @task
 def ssh(*cli):
-    """ opens an ssh connection to the instance """
+    """ opens an ssh connection to the instance
+
+    :param string cli: the commands to run on the host
+    """
+
     data = load_state_from_disk()
     cloud_type = data['cloud_type']
     ip_address = data['ip_address']
@@ -982,7 +1058,11 @@ def tests():
 
 @task
 def up(cloud=None, distribution=None):
-    """ boots a new instance on amazon or rackspace """
+    """ boots a new instance on amazon or rackspace
+
+    :param string cloud: The cloud type to use 'ec2', 'rackspace'
+    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
+    """
 
     cookbook = MyCookbooks()
 
@@ -1052,18 +1132,17 @@ if is_there_state():
     list_of_clouds.append(data['cloud_type'])
 else:
     # no state.json, we expect to find a cloud='' option in our argv
-    list_of_clouds = cookbook.get_cloud_environment(' '.join(sys.argv))
+    list_of_clouds = cookbook.get_cloud_environment()
 
-if list_of_clouds == []:
+if not len(list_of_clouds):
     # sounds like we are asking for a task that require cloud environment
-    # variables and we don't have them defined, lets inform the user what
+    # variables and we don't have them defined, let's inform the user what
     # variables we are looking for.
     help()
-    exit(1)
 
 # right, we have a 'cloud_type' in list_of_clouds, lets find out if the env
 # variables we need for that cloud have been defined.
-if cookbook.check_for_missing_environment_variables(list_of_clouds) is False:
+if not cookbook.check_for_missing_environment_variables(list_of_clouds):
     help()
     exit(1)
 
@@ -1090,7 +1169,8 @@ if 'rackspace' in list_of_clouds:
     rackspace_tenant_name = os.environ['OS_TENANT_NAME']
     rackspace_password = os.environ['OS_PASSWORD']
     rackspace_auth_url = os.getenv('OS_AUTH_URL',
-                                'https://identity.api.rackspacecloud.com/v2.0/')
+                                   'https://identity.api.rackspacecloud.com/'
+                                   'v2.0/')
     rackspace_auth_system = os.getenv('OS_AUTH_SYSTEM', 'rackspace')
     rackspace_region = os.getenv('OS_REGION_NAME', 'DFW')
     rackspace_flavor = '1GB Standard Instance'
@@ -1183,16 +1263,17 @@ if 'rackspace' in list_of_clouds:
     }
 
 # Modify some global Fabric behaviours:
-# Let's disable know_hosts, since on Clouds that behaviour can get in the
+# Let's disable known_hosts, since on Clouds that behaviour can get in the
 # way as we continuosly destroy/create boxes.
 env.disable_known_hosts = True
-env.use_ssh_config = True
+env.use_ssh_config = False
+env.eagerly_disconnect = True
 
 # We store the state in a local file as we need to keep track of the
 # ec2 instance id and ip_address so that we can run provision multiple times
 # By using some metadata locally about the VM we get a similar workflow to
 # vagrant (up, down, destroy, bootstrap).
-if is_there_state() is False:
+if not is_there_state():
     pass
 else:
     data = load_state_from_disk()

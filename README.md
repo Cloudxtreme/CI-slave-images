@@ -53,7 +53,7 @@ create your virtualenv:
 ```
     virtualenv2 venv
     . venv/bin/activate
-    pip2 install -r requirements.txt
+    pip2 install -r requirements.txt --upgrade
 
 ```
 
