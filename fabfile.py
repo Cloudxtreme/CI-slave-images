@@ -145,7 +145,7 @@ class MyCookbooks():
                                  secret_access_key,
                                  distribution,
                                  username):
-        """ proxy function that calls acceptance tests for speficic OS
+        """ proxy function that calls acceptance tests for specific OS
 
         :param string cloud: The cloud type to use 'ec2', 'rackspace'
         :param string region: Cloud provider's region to deploy instance
@@ -226,12 +226,15 @@ class MyCookbooks():
             assert run('ls -l /bin/sh | grep bash')
 
             log_green('check that /root/.ssh/know_hosts exists')
-            if 'disabled' or 'permissive' in sudo('getenforce'):
-                assert '-rw------- 1 root root' in sudo(
-                    "ls -l /root/.ssh/known_hosts")
+            selinux_state = sudo('getenforce').lower()
+            known_hosts = sudo("ls -l /root/.ssh/known_hosts")
+
+            if 'disabled' in selinux_state:
+                assert '-rw------- 1 root root' in known_hosts
+            elif 'permissive' in selinux_state:
+                assert '-rw------- 1 root root' in known_hosts
             else:
-                assert '-rw-------. 1 root root' in sudo(
-                    "ls -l /root/.ssh/known_hosts")
+                assert '-rw-------. 1 root root' in known_hosts
 
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
@@ -267,7 +270,7 @@ class MyCookbooks():
                                   secret_access_key,
                                   distribution,
                                   username):
-        """ proxy function that calls acceptance tests for speficic OS
+        """ proxy function that calls acceptance tests for specific OS
 
             :param string cloud: The cloud type to use 'ec2', 'rackspace'
             :param string region: Cloud provider's region to deploy instance
