@@ -1,4 +1,4 @@
-# vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
+## vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
 
 # fabric task file for building new CI slave images
 #
@@ -680,10 +680,10 @@ class MyCookbooks():
         """
         clouds = []
         tasks = string.split(' ')
-        for _task in tasks:
-            if 'cloud=ec2' in _task:
+        for action in tasks:
+            if 'cloud=ec2' in action:
                 clouds.append('ec2')
-            if 'cloud=rackspace' in _task:
+            if 'cloud=rackspace' in action:
                 clouds.append('rackspace')
         return clouds
 
