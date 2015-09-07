@@ -1,4 +1,4 @@
-## vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
+# vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
 
 # fabric task file for building new CI slave images
 #
@@ -672,15 +672,14 @@ class MyCookbooks():
                 file_append(filename=f, text='umask 022')
                 file_attribs(f, mode=750, owner=data['username'])
 
-    def get_cloud_environment(self, string):
+    def get_cloud_environment(self):
         """ returns cloud_type from command line arguments
 
         returns the cloud type from a fab execution string:
         fab it:cloud=rackspace,distribution=centos7
         """
         clouds = []
-        tasks = string.split(' ')
-        for action in tasks:
+        for action in sys.argv:
             if 'cloud=ec2' in action:
                 clouds.append('ec2')
             if 'cloud=rackspace' in action:
@@ -1067,14 +1066,13 @@ if is_there_state():
     list_of_clouds.append(data['cloud_type'])
 else:
     # no state.json, we expect to find a cloud='' option in our argv
-    list_of_clouds = cookbook.get_cloud_environment(' '.join(sys.argv))
+    list_of_clouds = cookbook.get_cloud_environment()
 
 if not len(list_of_clouds):
     # sounds like we are asking for a task that require cloud environment
     # variables and we don't have them defined, let's inform the user what
     # variables we are looking for.
     help()
-    exit(1)
 
 # right, we have a 'cloud_type' in list_of_clouds, lets find out if the env
 # variables we need for that cloud have been defined.
