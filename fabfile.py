@@ -74,8 +74,11 @@ from cuisine import (user_ensure,
 
 
 class MyCookbooks():
-    """ collection of custom fabric tasks used in this fabfile.
-        list them a-z if you must.
+    """ Collection of helpers for fabric tasks
+
+    Contains a collection of helper functions for fabric task used in this
+    fabfile.
+    List them a-z if you must.
     """
 
     def acceptance_tests(self,
@@ -594,8 +597,10 @@ class MyCookbooks():
                 "ruby-dev"]
 
     def check_for_missing_environment_variables(self, cloud_type=None):
-        """ double checks that the minimum environment variables have been
-            configured correctly.
+        """ checks for required environment variables
+
+        Double checks that the minimum environment variables have been
+        configured correctly.
         """
         if not cloud_type:
             cloud_type = []
@@ -626,9 +631,11 @@ class MyCookbooks():
         return len(env_var_missing) == 0
 
     def create_etc_slave_config(self):
-        """ /etc/slave_config is used by jenkins slave_plugin.
-            it allows files to be copied from the master to the slave.
-            These files are copied to /etc/slave_config on the slave.
+        """ creates /etc/slave_config directory on master
+
+        /etc/slave_config is used by jenkins slave_plugin.
+        it allows files to be copied from the master to the slave.
+        These files are copied to /etc/slave_config on the slave.
         """
         # TODO: fix these permissions, likely ubuntu/centos/jenkins users
         # need read/write permissions.
@@ -641,8 +648,10 @@ class MyCookbooks():
         f_ec2()
 
     def fix_umask(self):
-        """ fix an issue with the the build package process where it fails, due
-            the files in the produced package have the wrong permissions.
+        """ Sets umask to 022
+
+        fix an issue with the the build package process where it fails, due
+        the files in the produced package have the wrong permissions.
         """
         with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                       warn_only=True, capture=True):
@@ -664,9 +673,10 @@ class MyCookbooks():
                 file_attribs(f, mode=750, owner=data['username'])
 
     def get_cloud_environment(self, string):
-        """
-            returns the cloud type from a fab execution string:
-            fab it:cloud=rackspace,distribution=centos7
+        """ returns cloud_type from command line arguments
+
+        returns the cloud type from a fab execution string:
+        fab it:cloud=rackspace,distribution=centos7
         """
         clouds = []
         tasks = string.split(' ')
@@ -679,6 +689,7 @@ class MyCookbooks():
 
     def install_nginx(self):
         """ installs nginx
+
             nginx is used for the packaging process.
             the acceptance tests will produce a rpm/deb package.
             that package is then made available on http so that the acceptance
@@ -721,10 +732,12 @@ class MyCookbooks():
         return secrets
 
     def symlink_sh_to_bash(self):
-        """ jenkins seems to default to /bin/dash instead of bash
-            on ubuntu. There is a shell config parameter that I haven't
-            to set, so in order to force ubuntu nodes to execute jobs
-            using bash, let's symlink /bin/sh -> /bin/bash
+        """ Forces /bin/sh to point to /bin/bash
+
+        jenkins seems to default to /bin/dash instead of bash
+        on ubuntu. There is a shell config parameter that I haven't
+        to set, so in order to force ubuntu nodes to execute jobs
+        using bash, let's symlink /bin/sh -> /bin/bash
         """
         # read distribution from state file
         data = load_state_from_disk()
