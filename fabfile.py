@@ -605,8 +605,6 @@ class MyCookbooks():
         if not cloud_type:
             cloud_type = []
 
-        env_var_missing = []
-
         cloud_vars = {'ec2': ['AWS_KEY_PAIR',
                               'AWS_KEY_FILENAME',
                               'AWS_SECRET_ACCESS_KEY',
@@ -624,11 +622,9 @@ class MyCookbooks():
                       }
 
         for cloud in cloud_type:
-            for env_var in cloud_vars[cloud]:
-                if env_var not in os.environ:
-                    env_var_missing.append(env_var)
-
-        return len(env_var_missing) == 0
+            if not set(cloud_vars[cloud]).issubset(set(os.environ)):
+                return False
+        return True
 
     def create_etc_slave_config(self):
         """ creates /etc/slave_config directory on master
@@ -859,8 +855,8 @@ def help():
             http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
 
             # AWS_ACCESS_KEY_ID
-            # AWS_KEY_FILENAME
-            # AWS_KEY_PAIR
+            # AWS_KEY_FILENAME (the full path to your private key file)
+            # AWS_KEY_PAIR (the KEY_PAIR to use)
             # AWS_SECRET_ACCESS_KEY
             # AWS_ACCESS_REGION (optional)
             # AWS_AMI (optional)
@@ -873,8 +869,8 @@ def help():
             # OS_TENANT_NAME
             # OS_PASSWORD
             # OS_NO_CACHE
-            # RACKSPACE_KEY_PAIR
-            # RACKSPACE_KEY_FILENAME
+            # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+            # RACKSPACE_KEY_FILENAME (the full path to your private key file)
             # OS_AUTH_SYSTEM (optional)
             # OS_AUTH_URL (optional)
             # OS_REGION_NAME (optional)
