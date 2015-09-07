@@ -107,16 +107,6 @@ class MyCookbooks():
                                            secret_access_key,
                                            distribution,
                                            username)
-        """ proxy function that calls acceptance tests for speficic OS
-
-        :param string cloud: The cloud type to use 'ec2', 'rackspace'
-        :param string region: Cloud provider's region to deploy instance
-        :param string instance_id: The VM id as known by the cloud provider
-        :param string access_key_id: Typically the API access key
-        :param string secret_access_key: The secret matching the access key
-        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-        :param string username: ssh username to use
-        """
 
         if 'centos' in distribution.lower():
             self.acceptance_tests_centos7(cloud,
@@ -126,16 +116,6 @@ class MyCookbooks():
                                           secret_access_key,
                                           distribution,
                                           username)
-        """ proxy function that calls acceptance tests for speficic OS
-
-        :param string cloud: The cloud type to use 'ec2', 'rackspace'
-        :param string region: Cloud provider's region to deploy instance
-        :param string instance_id: The VM id as known by the cloud provider
-        :param string access_key_id: Typically the API access key
-        :param string secret_access_key: The secret matching the access key
-        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-        :param string username: ssh username to use
-        """
 
     def acceptance_tests_centos7(self,
                                  cloud,
@@ -145,7 +125,7 @@ class MyCookbooks():
                                  secret_access_key,
                                  distribution,
                                  username):
-        """ proxy function that calls acceptance tests for specific OS
+        """ run acceptance tests on centos 7
 
         :param string cloud: The cloud type to use 'ec2', 'rackspace'
         :param string region: Cloud provider's region to deploy instance
@@ -270,7 +250,7 @@ class MyCookbooks():
                                   secret_access_key,
                                   distribution,
                                   username):
-        """ proxy function that calls acceptance tests for specific OS
+        """ run acceptance tests on ubuntu14
 
             :param string cloud: The cloud type to use 'ec2', 'rackspace'
             :param string region: Cloud provider's region to deploy instance
