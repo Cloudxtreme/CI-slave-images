@@ -175,7 +175,10 @@ class MyCookbooks():
             # make sure we installed all the packages we need
             log_green('assert that required rpm packages are installed')
             for pkg in self.centos7_required_packages():
-                assert package.installed(pkg)
+                # we can't check meta-packages
+                if '@' not in pkg:
+                    log_green('... checking %s' % pkg)
+                    assert package.installed(pkg)
 
             # ZFS will be required for the ZFS acceptance tests
             log_green('check that the zfs repository is installed')
@@ -230,8 +233,8 @@ class MyCookbooks():
             log_green('check that /root/.ssh/known_hosts exists')
 
             # known_hosts needs to have 600 permissions
-            assert file.exists("/root/.ssh/known_hosts",  sudo=True)
-            assert file.mode_is("/root/.ssh/known_hosts", "600", sudo=True)
+            assert sudo("test -e /root/.ssh/known_hosts")
+            assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
 
             # fpm is used for build RPMs/DEBs
             log_green('check that fpm is installed')
@@ -338,7 +341,7 @@ class MyCookbooks():
             # make sure we installed all the packages we need
             log_green('assert that required deb packages are installed')
             for pkg in self.ubuntu14_required_packages():
-                log_green(' checking package: %s' % pkg)
+                log_green('... checking package: %s' % pkg)
                 assert package.installed(pkg)
 
             # Our tests require us to run docker as ubuntu.
@@ -370,8 +373,8 @@ class MyCookbooks():
             # so we make sure it exists
             log_green('check that /root/.ssh/know_hosts exists')
             # known_hosts needs to have 600 permissions
-            assert file.exists("/root/.ssh/known_hosts",  sudo=True)
-            assert file.mode_is("/root/.ssh/known_hosts", "600", sudo=True)
+            assert sudo("test -e /root/.ssh/known_hosts")
+            assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
 
             # fpm is used for build RPMs/DEBs
             log_green('check that fpm is installed')
