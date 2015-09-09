@@ -207,6 +207,7 @@ class MyCookbooks():
             # and the jenkins bootstrapping of the node will change the
             # docker sysconfig file to run as 'docker' group.
             # TODO: move that jenkins code here
+            # https://clusterhq.atlassian.net/browse/FLOC-2995
             log_green('check that centos is part of group docker')
             assert user.exists("centos")
             assert group.is_exists("docker")
