@@ -220,13 +220,13 @@ class MyCookbooks():
             log_green('check that nginx is running')
             assert package.installed('nginx')
             assert port.is_listening(80, "tcp")
-            assert process.is_up("nginx") is True
+            assert process.is_up("nginx")
             assert sudo("systemctl is-enabled nginx")
 
             # the client acceptance tests run on docker instances
             log_green('check that docker is running')
             assert sudo('rpm -q docker-engine | grep "1.8."')
-            assert process.is_up("docker") is True
+            assert process.is_up("docker")
             assert sudo("systemctl is-enabled docker")
 
             # the run acceptance tests fail if we don't have a known_hosts file
@@ -237,7 +237,7 @@ class MyCookbooks():
             assert sudo("ls /root/.ssh/known_hosts")
             assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
 
-            # fpm is used for build RPMs/DEBs
+            # fpm is used for building RPMs/DEBs
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
 
@@ -272,7 +272,7 @@ class MyCookbooks():
             # using  SSL on our caching box.
             # The --trusted-host option is only available with pip 7
             log_green('check that pip is the latest version')
-            assert '7.1.' in run('pip --version')
+            assert '7.' in run('pip --version')
 
             # The /tmp/acceptance.yaml file is deployed to the jenkins slave
             # during bootstrapping. These are copied from the Jenkins Master
@@ -362,13 +362,13 @@ class MyCookbooks():
             log_green('check that nginx is running')
             assert package.installed('nginx')
             assert port.is_listening(80, "tcp")
-            assert process.is_up("nginx") is True
+            assert process.is_up("nginx")
             assert 'nginx' in run('ls -l /etc/init.d/')
 
             # the client acceptance tests run on docker instances
             log_green('check that docker is running')
             assert sudo('docker --version | grep "1.8."')
-            assert process.is_up("docker") is True
+            assert process.is_up("docker")
 
             # the run acceptance tests fail if we don't have a known_hosts file
             # so we make sure it exists
@@ -414,7 +414,7 @@ class MyCookbooks():
             # using  SSL on our caching box.
             # The --trusted-host option is only available with pip 7
             log_green('check that pip is the latest version')
-            assert '7.1.' in run('pip --version')
+            assert '7.' in run('pip --version')
 
             # The /tmp/acceptance.yaml file is deployed to the jenkins slave
             # during bootstrapping. These are copied from the Jenkins Master
