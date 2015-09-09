@@ -233,7 +233,7 @@ class MyCookbooks():
             log_green('check that /root/.ssh/known_hosts exists')
 
             # known_hosts needs to have 600 permissions
-            assert sudo("test -e /root/.ssh/known_hosts")
+            assert sudo("ls /root/.ssh/known_hosts")
             assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
 
             # fpm is used for build RPMs/DEBs
@@ -373,7 +373,7 @@ class MyCookbooks():
             # so we make sure it exists
             log_green('check that /root/.ssh/know_hosts exists')
             # known_hosts needs to have 600 permissions
-            assert sudo("test -e /root/.ssh/known_hosts")
+            assert sudo("ls /root/.ssh/known_hosts")
             assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
 
             # fpm is used for build RPMs/DEBs
