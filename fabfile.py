@@ -144,7 +144,7 @@ class MyCookbooks():
 
             # Jnnkins should call the correct interpreter based on the sheebang
             # However,
-            # We noticed that our Ubuntu /bin/bash call were being executed
+            # We noticed that our Ubuntu /bin/bash calls were being executed
             # as /bin/sh.
             # So we as part of the slave image build process symlinked
             # /bin/sh -> /bin/bash.
@@ -306,7 +306,7 @@ class MyCookbooks():
 
             env.platform_family = detect.detect()
 
-            # Jnnkins should call the correct interpreter based on the sheebang
+            # Jenkins should call the correct interpreter based on the shebang
             # However,
             # We noticed that our Ubuntu /bin/bash call were being executed
             # as /bin/sh.
