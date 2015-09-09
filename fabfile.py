@@ -250,7 +250,7 @@ class MyCookbooks():
                                   secret_access_key,
                                   distribution,
                                   username):
-        """ run acceptance tests on ubuntu14
+        """ run acceptance tests on ubuntu14.04
 
             :param string cloud: The cloud type to use 'ec2', 'rackspace'
             :param string region: Cloud provider's region to deploy instance
