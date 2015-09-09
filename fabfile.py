@@ -1,4 +1,4 @@
-## vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
+# vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
 
 # fabric task file for building new CI slave images
 #
@@ -174,6 +174,7 @@ class MyCookbooks():
             # make sure we installed all the packages we need
             log_green('assert that required rpm packages are installed')
             for pkg in self.centos7_required_packages():
+                assert package.installed(pkg)
 
             # ZFS will be required for the ZFS acceptance tests
             log_green('check that the zfs repository is installed')
@@ -228,20 +229,8 @@ class MyCookbooks():
             log_green('check that /root/.ssh/known_hosts exists')
 
             # known_hosts needs to have 600 permissions
-            selinux_state = sudo('getenforce').lower()
-            known_hosts = sudo("ls -l /root/.ssh/known_hosts")
-
-            # let's simply use a ls -l and check the result match
-            # what we expect.
-            # note that 'enforcing' has an extra '.'
-            if 'disabled' in selinux_state:
-                assert '-rw------- 1 root root' in known_hosts
-
-            if 'permissive' in selinux_state:
-                assert '-rw------- 1 root root' in known_hosts
-
-            if 'enforcing' in selinux_state:
-                assert '-rw-------. 1 root root' in known_hosts
+            assert file.exists("/root/.ssh/known_hosts",  sudo=True)
+            assert file.mode_is("/root/.ssh/known_hosts", "600", sudo=True)
 
             # fpm is used for build RPMs/DEBs
             log_green('check that fpm is installed')
@@ -379,8 +368,8 @@ class MyCookbooks():
             # so we make sure it exists
             log_green('check that /root/.ssh/know_hosts exists')
             # known_hosts needs to have 600 permissions
-            assert '-rw------- 1 root root' in sudo(
-                "ls -l /root/.ssh/known_hosts")
+            assert file.exists("/root/.ssh/known_hosts",  sudo=True)
+            assert file.mode_is("/root/.ssh/known_hosts", "600", sudo=True)
 
             # fpm is used for build RPMs/DEBs
             log_green('check that fpm is installed')
@@ -691,6 +680,8 @@ class MyCookbooks():
                 "openssl-devel",
                 "nginx",
                 "subversion-perl",
+                # Docker with SELinux requires docker-selinux
+                # https://github.com/docker/docker/issues/15498
                 "docker-selinux",
                 "ruby-devel"]
 
