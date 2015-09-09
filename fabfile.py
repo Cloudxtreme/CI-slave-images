@@ -377,7 +377,7 @@ class MyCookbooks():
             assert sudo("ls /root/.ssh/known_hosts")
             assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
 
-            # fpm is used for build RPMs/DEBs
+            # fpm is used for building RPMs/DEBs
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
 
