@@ -1,4 +1,4 @@
-# vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
+## vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
 
 # fabric task file for building new CI slave images
 #
@@ -141,34 +141,41 @@ class MyCookbooks():
 
             env.platform_family = detect.detect()
 
+            # Jnnkins should call the correct interpreter based on the sheebang
+            # However,
+            # We noticed that our Ubuntu /bin/bash call were being executed
+            # as /bin/sh.
+            # So we as part of the slave image build process symlinked
+            # /bin/sh -> /bin/bash.
+            # https://clusterhq.atlassian.net/browse/FLOC-2986
             log_green('check that /bin/sh is symlinked to bash')
             assert file.is_link("/bin/sh")
+            assert 'bash' in run('ls -l /bin/sh')
 
             # TODO: is this required on centos?
-            log_green('check that our umask matches 022')
+            # log_green('check that our umask matches 022')
             # assert command.is_work('su - centos -c "umask | grep 022"')
 
+            # disable requiretty
+            # http://tinyurl.com/peoffwk
             log_green("check that tty are not required when sudo'ing")
             assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
 
+            # we need to keep the PATH so that we can run virtualenv with sudo
             log_green('check that the environment is not reset on sudo')
             assert sudo("sudo grep "
                         "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
                         " /etc/sudoers")
 
+            # the epel-release repository is required for a bunch of packages
             log_green('assert that EPEL is installed')
             assert package.installed('epel-release')
 
-            # TODO:
-            # assert that centos developments tools is installed
-
+            # make sure we installed all the packages we need
             log_green('assert that required rpm packages are installed')
             for pkg in self.centos7_required_packages():
-                if '@' in pkg:
-                    continue
-                log_green(' checking package: %s' % pkg)
-                assert package.installed(pkg)
 
+            # ZFS will be required for the ZFS acceptance tests
             log_green('check that the zfs repository is installed')
             assert package.installed('zfs-release')
 
@@ -180,45 +187,70 @@ class MyCookbooks():
             assert package.installed("zfs")
             assert run('lsmod |grep zfs')
 
+            # We now need SELinux enabled
             log_green('check that SElinux is enforcing')
             assert sudo('getenforce | grep -i "enforcing"')
 
+            # And Firewalld should be running too
             log_green('check that firewalld is enabled')
             assert sudo("systemctl is-enabled firewalld")
 
+            # EL, won't allow us to run docker as non-root
+            # http://tinyurl.com/qfuyxjm
+            # but our tests require us to, so we add the 'centos' user to the
+            # docker group.
+            # and the jenkins bootstrapping of the node will change the
+            # docker sysconfig file to run as 'docker' group.
+            # TODO: move that jenkins code here
             log_green('check that centos is part of group docker')
             assert user.exists("centos")
             assert group.is_exists("docker")
             assert user.is_belonging_group("centos", "docker")
 
+            # the acceptance tests look for a package in a yum repository,
+            # we provide one by starting a webserver and pointing the tests
+            # to look over there.
+            # for that we need 'nginx' installed and running
             log_green('check that nginx is running')
             assert package.installed('nginx')
             assert port.is_listening(80, "tcp")
             assert process.is_up("nginx") is True
             assert sudo("systemctl is-enabled nginx")
 
+            # the client acceptance tests run on docker instances
             log_green('check that docker is running')
             assert sudo('rpm -q docker-engine | grep "1.8."')
             assert process.is_up("docker") is True
             assert sudo("systemctl is-enabled docker")
 
-            log_green('assert that /bin/sh is symlinked to /bin/bash')
-            assert run('ls -l /bin/sh | grep bash')
+            # the run acceptance tests fail if we don't have a known_hosts file
+            # so we make sure it exists
+            log_green('check that /root/.ssh/known_hosts exists')
 
-            log_green('check that /root/.ssh/know_hosts exists')
+            # known_hosts needs to have 600 permissions
             selinux_state = sudo('getenforce').lower()
             known_hosts = sudo("ls -l /root/.ssh/known_hosts")
 
+            # let's simply use a ls -l and check the result match
+            # what we expect.
+            # note that 'enforcing' has an extra '.'
             if 'disabled' in selinux_state:
                 assert '-rw------- 1 root root' in known_hosts
-            elif 'permissive' in selinux_state:
+
+            if 'permissive' in selinux_state:
                 assert '-rw------- 1 root root' in known_hosts
-            else:
+
+            if 'enforcing' in selinux_state:
                 assert '-rw-------. 1 root root' in known_hosts
 
+            # fpm is used for build RPMs/DEBs
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
 
+            # A lot of Flocker tests use different docker images,
+            # we don't want to have to download those images every time we
+            # spin up a new slave node. So we make sure they are cached
+            # locally when we bake the image.
             log_green('check that images have been downloaded locally')
             for image in self.local_docker_images():
                 log_green(' checking %s' % image)
@@ -229,15 +261,29 @@ class MyCookbooks():
                 else:
                     assert image in sudo('docker images')
 
+            # CentOS 7 provides us with a fairly old git version, we install
+            # a recent version in /usr/local/bin
             log_green('check that git is installed locally')
             assert file.exists("/usr/local/bin/git")
 
+            # and then update the PATH so that our new git comes first
             log_green('check that /usr/local/bin is in path')
             assert '/usr/local/bin/git' in run('which git')
 
+            # update pip
+            # We have a devpi cache in AWS which we will consume instead of
+            # going upstream to the PyPi servers.
+            # We specify that devpi caching server using -i \$PIP_INDEX_URL
+            # which requires as to include --trusted_host as we are not (yet)
+            # using  SSL on our caching box.
+            # The --trusted-host option is only available with pip 7
             log_green('check that pip is the latest version')
             assert '7.1.' in run('pip --version')
 
+            # The /tmp/acceptance.yaml file is deployed to the jenkins slave
+            # during bootstrapping. These are copied from the Jenkins Master
+            # /etc/slave_config directory.
+            # We just need to make sure that directory exists.
             log_green('check that /etc/slave_config exists')
             assert file.dir_exists("/etc/slave_config")
             assert file.mode_is("/etc/slave_config", "777")
@@ -266,53 +312,84 @@ class MyCookbooks():
 
             env.platform_family = detect.detect()
 
+            # Jnnkins should call the correct interpreter based on the sheebang
+            # However,
+            # We noticed that our Ubuntu /bin/bash call were being executed
+            # as /bin/sh.
+            # So we as part of the slave image build process symlinked
+            # /bin/sh -> /bin/bash.
+            # https://clusterhq.atlassian.net/browse/FLOC-2986
             log_green('check that /bin/sh is symlinked to bash')
+            assert file.is_link("/bin/sh")
             assert 'bash' in run('ls -l /bin/sh')
 
+            # umask needs to be set to 022, so that the packages we build
+            # through the flocker tests have the correct permissions.
+            # otherwise rpmlint fails with permssion errors.
             log_green('check that our umask matches 022')
             assert '022' in run('umask')
 
+            # the client acceptance tests run on docker instances
             log_green('check that docker is enabled')
             assert 'docker' in run('ls -l /etc/init')
 
+            # disable requiretty
+            # http://tinyurl.com/peoffwk
             log_green("check that tty are not required when sudo'ing")
             assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
 
+            # we need to keep the PATH so that we can run virtualenv with sudo
             log_green('check that the environment is not reset on sudo')
             assert sudo("sudo grep "
                         "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
                         " /etc/sudoers")
 
+            # make sure we installed all the packages we need
             log_green('assert that required deb packages are installed')
             for pkg in self.ubuntu14_required_packages():
                 log_green(' checking package: %s' % pkg)
                 assert package.installed(pkg)
 
+            # Our tests require us to run docker as ubuntu.
+            # So we add the user ubuntu to the docker group.
+            # During bootstrapping of the node, jenkins will update the init
+            # file so that docker is running with the correct group.
+            # TODO: move that jenkins code here
             log_green('check that ubuntu is part of group docker')
             assert user.exists("ubuntu")
             assert group.is_exists("docker")
             assert user.is_belonging_group("ubuntu", "docker")
 
+            # the acceptance tests look for a package in a yum repository,
+            # we provide one by starting a webserver and pointing the tests
+            # to look over there.
+            # for that we need 'nginx' installed and running
             log_green('check that nginx is running')
             assert package.installed('nginx')
             assert port.is_listening(80, "tcp")
             assert process.is_up("nginx") is True
             assert 'nginx' in run('ls -l /etc/init.d/')
 
+            # the client acceptance tests run on docker instances
             log_green('check that docker is running')
             assert sudo('docker --version | grep "1.8."')
             assert process.is_up("docker") is True
 
-            log_green('assert that /bin/sh is symlinked to /bin/bash')
-            assert run('ls -l /bin/sh | grep bash')
-
+            # the run acceptance tests fail if we don't have a known_hosts file
+            # so we make sure it exists
             log_green('check that /root/.ssh/know_hosts exists')
+            # known_hosts needs to have 600 permissions
             assert '-rw------- 1 root root' in sudo(
                 "ls -l /root/.ssh/known_hosts")
 
+            # fpm is used for build RPMs/DEBs
             log_green('check that fpm is installed')
             assert 'fpm' in sudo('gem list')
 
+            # A lot of Flocker tests use different docker images,
+            # we don't want to have to download those images every time we
+            # spin up a new slave node. So we make sure they are cached
+            # locally when we bake the image.
             log_green('check that images have been downloaded locally')
             for image in self.local_docker_images():
                 log_green(' checking %s' % image)
@@ -323,15 +400,31 @@ class MyCookbooks():
                 else:
                     assert image in sudo('docker images')
 
+            # CentOS 7 provides us with a fairly old git version, we install
+            # a recent version in /usr/local/bin.
+            # On Ubuntu we install the same git version to avoid any surprises
+            # with the jenkins git plugin.
             log_green('check that git is installed locally')
             assert file.exists("/usr/local/bin/git")
 
+            # and then update the PATH so that our new git comes first
             log_green('check that /usr/local/bin is in path')
             assert '/usr/local/bin/git' in run('which git')
 
+            # update pip
+            # We have a devpi cache in AWS which we will consume instead of
+            # going upstream to the PyPi servers.
+            # We specify that devpi caching server using -i \$PIP_INDEX_URL
+            # which requires as to include --trusted_host as we are not (yet)
+            # using  SSL on our caching box.
+            # The --trusted-host option is only available with pip 7
             log_green('check that pip is the latest version')
             assert '7.1.' in run('pip --version')
 
+            # The /tmp/acceptance.yaml file is deployed to the jenkins slave
+            # during bootstrapping. These are copied from the Jenkins Master
+            # /etc/slave_config directory.
+            # We just need to make sure that directory exists.
             log_green('check that /etc/slave_config exists')
             assert file.dir_exists("/etc/slave_config")
             assert file.mode_is("/etc/slave_config", "777")
