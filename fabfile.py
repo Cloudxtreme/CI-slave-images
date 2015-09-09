@@ -100,32 +100,33 @@ class MyCookbooks():
         :param string username: ssh username to use
         """
         if 'ubuntu' in distribution.lower():
-            self.acceptance_tests_ubuntu14(cloud,
-                                           region,
-                                           instance_id,
-                                           access_key_id,
-                                           secret_access_key,
-                                           distribution,
-                                           username)
+            self.acceptance_tests_on_ubuntu14_img_for_flocker(cloud,
+                                                              region,
+                                                              instance_id,
+                                                              access_key_id,
+                                                              secret_access_key,
+                                                              distribution,
+                                                              username)
 
         if 'centos' in distribution.lower():
-            self.acceptance_tests_centos7(cloud,
-                                          region,
-                                          instance_id,
-                                          access_key_id,
-                                          secret_access_key,
-                                          distribution,
-                                          username)
+            self.acceptance_tests_on_centos7_img_for_flocker(cloud,
+                                                             region,
+                                                             instance_id,
+                                                             access_key_id,
+                                                             secret_access_key,
+                                                             distribution,
+                                                             username)
 
-    def acceptance_tests_centos7(self,
-                                 cloud,
-                                 region,
-                                 instance,
-                                 access_key_id,
-                                 secret_access_key,
-                                 distribution,
-                                 username):
-        """ run acceptance tests on centos 7
+    def acceptance_tests_on_centos7_img_for_flocker(self,
+                                                    cloud,
+                                                    region,
+                                                    instance,
+                                                    access_key_id,
+                                                    secret_access_key,
+                                                    distribution,
+                                                    username):
+        """ checks that the CentOS 7 image is suitable for running the Flocker
+        acceptance tests
 
         :param string cloud: The cloud type to use 'ec2', 'rackspace'
         :param string region: Cloud provider's region to deploy instance
@@ -277,15 +278,16 @@ class MyCookbooks():
             assert file.dir_exists("/etc/slave_config")
             assert file.mode_is("/etc/slave_config", "777")
 
-    def acceptance_tests_ubuntu14(self,
-                                  cloud,
-                                  region,
-                                  instance,
-                                  access_key_id,
-                                  secret_access_key,
-                                  distribution,
-                                  username):
-        """ run acceptance tests on ubuntu14.04
+    def acceptance_tests_on_ubuntu14_img_for_flocker(self,
+                                                     cloud,
+                                                     region,
+                                                     instance,
+                                                     access_key_id,
+                                                     secret_access_key,
+                                                     distribution,
+                                                     username):
+        """ checks that the Ubuntu 14 image is suitable for running the Flocker
+        acceptance tests
 
             :param string cloud: The cloud type to use 'ec2', 'rackspace'
             :param string region: Cloud provider's region to deploy instance
