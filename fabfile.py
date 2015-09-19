@@ -1341,6 +1341,7 @@ if 'rackspace' in list_of_clouds:
 env.disable_known_hosts = True
 env.use_ssh_config = False
 env.eagerly_disconnect = True
+env.connection_attemtps = 5
 
 # We store the state in a local file as we need to keep track of the
 # ec2 instance id and ip_address so that we can run provision multiple times
