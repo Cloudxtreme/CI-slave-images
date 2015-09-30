@@ -83,3 +83,16 @@ then execute as:
 
 The fab code should bootstrap an AWS/Rackspace instance,
 provision it and bake an image before deleting the original instance.
+
+NOTE: if you get an:
+```
+    image = conn.get_all_images(ami)[0]
+    IndexError: list index out of range
+```
+while bootstrapping an ubuntu instance, it is likely the base AMI is no longer
+available.
+Find out the new one from:
+http://cloud-images.ubuntu.com/locator/ec2/
+[us-west-2][trusty][14.04 LTS][amd64][ebs][Any][Any][hvm]
+
+and update the fabfile.py with the new AMI id, commit, push, etc.

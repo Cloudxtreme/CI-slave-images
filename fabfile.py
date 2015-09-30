@@ -1274,7 +1274,7 @@ if 'ec2' in list_of_clouds:
             'tags': {'name': 'jenkins_slave_centos7_ondemand'}
         },
         'ubuntu14.04': {
-            'ami': 'ami-bddbcf8d',
+            'ami': 'ami-87bea5b7',
             'username': 'ubuntu',
             'disk_name': '/dev/sda1',
             'disk_size': '40',
