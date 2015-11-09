@@ -22,7 +22,8 @@ from envassert import (file,
 from fabric.api import sudo, task, env, run
 from fabric.context_managers import cd, settings, hide
 from fabric.contrib.files import (sed,
-                                  append as file_append)
+                                  append as file_append,
+                                  exists as file_exists)
 
 from bookshelf.api_v1 import (status as f_status,
                               up as f_up,
@@ -282,6 +283,10 @@ class MyCookbooks():
             assert file.dir_exists("/etc/slave_config")
             assert file.mode_is("/etc/slave_config", "777")
 
+            # pypy will be used in the acceptance tests
+            log_green('check that pypy is available')
+            assert '2.6.1' in run('pypy --version')
+
     def acceptance_tests_on_ubuntu14_img_for_flocker(self,
                                                      cloud,
                                                      region,
@@ -424,6 +429,10 @@ class MyCookbooks():
             assert file.dir_exists("/etc/slave_config")
             assert file.mode_is("/etc/slave_config", "777")
 
+            # pypy will be used in the acceptance tests
+            log_green('check that pypy is available')
+            assert '2.6.1' in run('pypy --version')
+
     def add_user_to_docker_group(self):
         """ make sure the user running jenkins is part of the docker group """
         log_green('adding the user running jenkins into the docker group')
@@ -549,6 +558,10 @@ class MyCookbooks():
             # transfer files from the master to the slave
             self.create_etc_slave_config()
 
+            # installs python-pypy onto /opt/python-pypy/2.6.1 and symlinks it
+            # to /usr/local/bin/pypy
+            self.install_python_pypy('2.6.1')
+
     def bootstrap_jenkins_slave_ubuntu14(self):
         # ec2 hosts get their ip addresses using dhcp, we need to know the new
         # ip address of our box before we continue our provisioning tasks.
@@ -639,6 +652,10 @@ class MyCookbooks():
             # /etc/slave_config is used by the jenkins_slave plugin to
             # transfer files from the master to the slave
             self.create_etc_slave_config()
+
+            # installs python-pypy onto /opt/python-pypy/2.6.1 and symlinks it
+            # to /usr/local/bin/pypy
+            self.install_python_pypy('2.6.1')
 
     def centos7_required_packages(self):
         return ["kernel-devel",
@@ -867,6 +884,25 @@ class MyCookbooks():
         if 'ubuntu' in data['distribution'].lower():
             sudo('/bin/rm /bin/sh')
             sudo('/bin/ln -s /bin/bash /bin/sh')
+
+    def install_python_pypy(self,
+                            version,
+                            replace=False,
+                            pypy_home='/opt/python-pypy',
+                            mode='755'):
+        """ installs python pypy """
+        dir_ensure(pypy_home, mode=mode, use_sudo=True)
+        pypy_path = "%s/%s/bin/pypy" % (pypy_home, version)
+        pathname = "pypy-%s-linux_x86_64-portable" % version
+        tgz = "%s.tar.bz2" % pathname
+        url = "https://bitbucket.org/squeaky/portable-pypy/downloads/%s" % tgz
+
+        if not file_exists(pypy_path):
+            with cd(pypy_home):
+                sudo('wget -c %s' % url)
+                sudo('tar xjf %s' % tgz)
+                sudo('mv %s %s' % (pathname, version))
+                sudo('ln -s %s /usr/local/bin/pypy' % pypy_path)
 
 
 @task
