@@ -705,7 +705,7 @@ class MyCookbooks():
                 "subversion-perl",
                 # Docker with SELinux requires docker-selinux
                 # https://github.com/docker/docker/issues/15498
-                "docker-selinux",
+                "docker-engine-selinux",
                 "ruby-devel"]
 
     def ubuntu14_required_packages(self):
