@@ -6,903 +6,34 @@
 #       fab help
 #
 
+
 import os
-import yaml
-import re
 import sys
-from time import sleep
 from datetime import datetime
-from envassert import (file,
-                       process,
-                       package,
-                       user,
-                       group,
-                       detect,
-                       port)
-from fabric.api import sudo, task, env, run
-from fabric.context_managers import cd, settings, hide
-from fabric.contrib.files import (sed,
-                                  append as file_append,
-                                  exists as file_exists)
+from fabric.api import task, env
 
 from bookshelf.api_v1 import (status as f_status,
                               up as f_up,
                               down as f_down,
                               destroy as f_destroy,
                               create_image as f_create_image,
-                              create_server as f_create_server,
-                              rackspace as f_rackspace,
-                              ec2 as f_ec2)
+                              create_server as f_create_server)
 
-from bookshelf.api_v1 import (add_epel_yum_repository,
-                              add_usr_local_bin_to_path,
-                              add_zfs_yum_repository,
-                              apt_install,
-                              apt_install_from_url,
-                              dir_ensure,
-                              yum_install_from_url,
-                              file_attribs,
-                              is_there_state,
-                              log_green,
+from bookshelf.api_v1 import (is_there_state,
                               load_state_from_disk,
-                              install_zfs_from_testing_repository,
-                              install_os_updates,
-                              install_ubuntu_development_tools,
-                              enable_selinux,
-                              disable_requiretty_on_sudoers,
-                              disable_env_reset_on_sudo,
-                              disable_requiretty_on_sshd_config,
-                              enable_firewalld_service,
-                              enable_apt_repositories,
-                              add_firewalld_port,
-                              install_docker,
-                              install_centos_development_tools,
-                              reboot,
-                              systemd,
-                              yum_install,
-                              install_system_gem,
-                              update_system_pip_to_latest_pip,
-                              wait_for_ssh,
-                              create_docker_group,
-                              git_clone,
-                              ssh_session,
-                              cache_docker_image_locally,
-                              install_recent_git_from_source)
+                              ssh_session)
 
-from cuisine import (user_ensure,
-                     group_ensure,
-                     group_user_ensure)
+from lib.mycookbooks import (ec2,
+                             rackspace,
+                             get_cloud_environment,
+                             check_for_missing_environment_variables,
+                             segredos)
 
 
-class MyCookbooks():
-    """ Collection of helpers for fabric tasks
+from lib.bootstrap import (bootstrap_jenkins_slave_centos7,
+                           bootstrap_jenkins_slave_ubuntu14)
 
-    Contains a collection of helper functions for fabric task used in this
-    fabfile.
-    List them a-z if you must.
-    """
-
-    def acceptance_tests(self,
-                         cloud,
-                         region,
-                         instance_id,
-                         access_key_id,
-                         secret_access_key,
-                         distribution,
-                         username):
-        """ proxy function that calls acceptance tests for speficic OS
-
-        :param string cloud: The cloud type to use 'ec2', 'rackspace'
-        :param string region: Cloud provider's region to deploy instance
-        :param string instance_id: The VM id as known by the cloud provider
-        :param string access_key_id: Typically the API access key
-        :param string secret_access_key: The secret matching the access key
-        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-        :param string username: ssh username to use
-        """
-        if 'ubuntu' in distribution.lower():
-            self.acceptance_tests_on_ubuntu14_img_for_flocker(cloud,
-                                                              region,
-                                                              instance_id,
-                                                              access_key_id,
-                                                              secret_access_key,
-                                                              distribution,
-                                                              username)
-
-        if 'centos' in distribution.lower():
-            self.acceptance_tests_on_centos7_img_for_flocker(cloud,
-                                                             region,
-                                                             instance_id,
-                                                             access_key_id,
-                                                             secret_access_key,
-                                                             distribution,
-                                                             username)
-
-    def acceptance_tests_on_centos7_img_for_flocker(self,
-                                                    cloud,
-                                                    region,
-                                                    instance,
-                                                    access_key_id,
-                                                    secret_access_key,
-                                                    distribution,
-                                                    username):
-        """ checks that the CentOS 7 image is suitable for running the Flocker
-        acceptance tests
-
-        :param string cloud: The cloud type to use 'ec2', 'rackspace'
-        :param string region: Cloud provider's region to deploy instance
-        :param string instance_id: The VM id as known by the cloud provider
-        :param string access_key_id: Typically the API access key
-        :param string secret_access_key: The secret matching the access key
-        :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-        :param string username: ssh username to use
-        """
-
-        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
-        with settings(host_string=ec2_host):
-
-            env.platform_family = detect.detect()
-
-            # Jenkins should call the correct interpreter based on the shebang
-            # However,
-            # We noticed that our Ubuntu /bin/bash calls were being executed
-            # as /bin/sh.
-            # So we as part of the slave image build process symlinked
-            # /bin/sh -> /bin/bash.
-            # https://clusterhq.atlassian.net/browse/FLOC-2986
-            log_green('check that /bin/sh is symlinked to bash')
-            assert file.is_link("/bin/sh")
-            assert 'bash' in run('ls -l /bin/sh')
-
-            # TODO: is this required on centos?
-            # log_green('check that our umask matches 022')
-            # assert command.is_work('su - centos -c "umask | grep 022"')
-
-            # disable requiretty
-            # http://tinyurl.com/peoffwk
-            log_green("check that tty are not required when sudo'ing")
-            assert sudo('grep "^\#Defaults.*requiretty" /etc/sudoers')
-
-            # we need to keep the PATH so that we can run virtualenv with sudo
-            log_green('check that the environment is not reset on sudo')
-            assert sudo("sudo grep "
-                        "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
-                        " /etc/sudoers")
-
-            # the epel-release repository is required for a bunch of packages
-            log_green('assert that EPEL is installed')
-            assert package.installed('epel-release')
-
-            # make sure we installed all the packages we need
-            log_green('assert that required rpm packages are installed')
-            for pkg in self.centos7_required_packages():
-                # we can't check meta-packages
-                if '@' not in pkg:
-                    log_green('... checking %s' % pkg)
-                    assert package.installed(pkg)
-
-            # ZFS will be required for the ZFS acceptance tests
-            log_green('check that the zfs repository is installed')
-            assert package.installed('zfs-release')
-
-            log_green('check that zfs from testing repository is installed')
-            assert run(
-                'grep "SPL_DKMS_DISABLE_STRIP=y" /etc/sysconfig/spl')
-            assert run(
-                'grep "ZFS_DKMS_DISABLE_STRIP=y" /etc/sysconfig/zfs')
-            assert package.installed("zfs")
-            assert run('lsmod |grep zfs')
-
-            # We now need SELinux enabled
-            log_green('check that SElinux is enforcing')
-            assert sudo('getenforce | grep -i "enforcing"')
-
-            # And Firewalld should be running too
-            log_green('check that firewalld is enabled')
-            assert sudo("systemctl is-enabled firewalld")
-
-            # EL, won't allow us to run docker as non-root
-            # http://tinyurl.com/qfuyxjm
-            # but our tests require us to, so we add the 'centos' user to the
-            # docker group.
-            # and the jenkins bootstrapping of the node will change the
-            # docker sysconfig file to run as 'docker' group.
-            # TODO: move that jenkins code here
-            # https://clusterhq.atlassian.net/browse/FLOC-2995
-            log_green('check that centos is part of group docker')
-            assert user.exists("centos")
-            assert group.is_exists("docker")
-            assert user.is_belonging_group("centos", "docker")
-
-            # the acceptance tests look for a package in a yum repository,
-            # we provide one by starting a webserver and pointing the tests
-            # to look over there.
-            # for that we need 'nginx' installed and running
-            log_green('check that nginx is running')
-            assert package.installed('nginx')
-            assert port.is_listening(80, "tcp")
-            assert process.is_up("nginx")
-            assert sudo("systemctl is-enabled nginx")
-
-            # the client acceptance tests run on docker instances
-            log_green('check that docker is running')
-            assert sudo('rpm -q docker-engine | grep "1.8."')
-            assert process.is_up("docker")
-            assert sudo("systemctl is-enabled docker")
-
-            # the run acceptance tests fail if we don't have a known_hosts file
-            # so we make sure it exists
-            log_green('check that /root/.ssh/known_hosts exists')
-
-            # known_hosts needs to have 600 permissions
-            assert sudo("ls /root/.ssh/known_hosts")
-            assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
-
-            # fpm is used for building RPMs/DEBs
-            log_green('check that fpm is installed')
-            assert 'fpm' in sudo('gem list')
-
-            # A lot of Flocker tests use different docker images,
-            # we don't want to have to download those images every time we
-            # spin up a new slave node. So we make sure they are cached
-            # locally when we bake the image.
-            log_green('check that images have been downloaded locally')
-            for image in self.local_docker_images():
-                log_green(' checking %s' % image)
-                if ':' in image:
-                    parts = image.split(':')
-                    expression = parts[0] + '.*' + parts[1]
-                    assert re.search(expression, sudo('docker images'))
-                else:
-                    assert image in sudo('docker images')
-
-            # CentOS 7 provides us with a fairly old git version, we install
-            # a recent version in /usr/local/bin
-            log_green('check that git is installed locally')
-            assert file.exists("/usr/local/bin/git")
-
-            # and then update the PATH so that our new git comes first
-            log_green('check that /usr/local/bin is in path')
-            assert '/usr/local/bin/git' in run('which git')
-
-            # update pip
-            # We have a devpi cache in AWS which we will consume instead of
-            # going upstream to the PyPi servers.
-            # We specify that devpi caching server using -i \$PIP_INDEX_URL
-            # which requires as to include --trusted_host as we are not (yet)
-            # using  SSL on our caching box.
-            # The --trusted-host option is only available with pip 7
-            log_green('check that pip is the latest version')
-            assert '7.' in run('pip --version')
-
-            # The /tmp/acceptance.yaml file is deployed to the jenkins slave
-            # during bootstrapping. These are copied from the Jenkins Master
-            # /etc/slave_config directory.
-            # We just need to make sure that directory exists.
-            log_green('check that /etc/slave_config exists')
-            assert file.dir_exists("/etc/slave_config")
-            assert file.mode_is("/etc/slave_config", "777")
-
-            # pypy will be used in the acceptance tests
-            log_green('check that pypy is available')
-            assert '2.6.1' in run('pypy --version')
-
-    def acceptance_tests_on_ubuntu14_img_for_flocker(self,
-                                                     cloud,
-                                                     region,
-                                                     instance,
-                                                     access_key_id,
-                                                     secret_access_key,
-                                                     distribution,
-                                                     username):
-        """ checks that the Ubuntu 14 image is suitable for running the Flocker
-        acceptance tests
-
-            :param string cloud: The cloud type to use 'ec2', 'rackspace'
-            :param string region: Cloud provider's region to deploy instance
-            :param string instance_id: The VM id as known by the cloud provider
-            :param string access_key_id: Typically the API access key
-            :param string secret_access_key: The secret matching the access key
-            :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-            :param string username: ssh username to use
-        """
-
-        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
-        with settings(host_string=ec2_host):
-
-            env.platform_family = detect.detect()
-
-            # Jenkins should call the correct interpreter based on the shebang
-            # However,
-            # We noticed that our Ubuntu /bin/bash call were being executed
-            # as /bin/sh.
-            # So we as part of the slave image build process symlinked
-            # /bin/sh -> /bin/bash.
-            # https://clusterhq.atlassian.net/browse/FLOC-2986
-            log_green('check that /bin/sh is symlinked to bash')
-            assert file.is_link("/bin/sh")
-            assert 'bash' in run('ls -l /bin/sh')
-
-            # umask needs to be set to 022, so that the packages we build
-            # through the flocker tests have the correct permissions.
-            # otherwise rpmlint fails with permssion errors.
-            log_green('check that our umask matches 022')
-            assert '022' in run('umask')
-
-            # the client acceptance tests run on docker instances
-            log_green('check that docker is enabled')
-            assert 'docker' in run('ls -l /etc/init')
-
-            # disable requiretty
-            # http://tinyurl.com/peoffwk
-            log_green("check that tty are not required when sudo'ing")
-            assert sudo('grep -v "^Defaults.*requiretty" /etc/sudoers')
-
-            # we need to keep the PATH so that we can run virtualenv with sudo
-            log_green('check that the environment is not reset on sudo')
-            assert sudo("sudo grep "
-                        "'Defaults:\%wheel\ \!env_reset\,\!secure_path'"
-                        " /etc/sudoers")
-
-            # make sure we installed all the packages we need
-            log_green('assert that required deb packages are installed')
-            for pkg in self.ubuntu14_required_packages():
-                log_green('... checking package: %s' % pkg)
-                assert package.installed(pkg)
-
-            # Our tests require us to run docker as ubuntu.
-            # So we add the user ubuntu to the docker group.
-            # During bootstrapping of the node, jenkins will update the init
-            # file so that docker is running with the correct group.
-            # TODO: move that jenkins code here
-            log_green('check that ubuntu is part of group docker')
-            assert user.exists("ubuntu")
-            assert group.is_exists("docker")
-            assert user.is_belonging_group("ubuntu", "docker")
-
-            # the acceptance tests look for a package in a yum repository,
-            # we provide one by starting a webserver and pointing the tests
-            # to look over there.
-            # for that we need 'nginx' installed and running
-            log_green('check that nginx is running')
-            assert package.installed('nginx')
-            assert port.is_listening(80, "tcp")
-            assert process.is_up("nginx")
-            assert 'nginx' in run('ls -l /etc/init.d/')
-
-            # the client acceptance tests run on docker instances
-            log_green('check that docker is running')
-            assert sudo('docker --version | grep "1.8."')
-            assert process.is_up("docker")
-
-            # the run acceptance tests fail if we don't have a known_hosts file
-            # so we make sure it exists
-            log_green('check that /root/.ssh/know_hosts exists')
-            # known_hosts needs to have 600 permissions
-            assert sudo("ls /root/.ssh/known_hosts")
-            assert "600" in sudo("stat -c %a /root/.ssh/known_hosts")
-
-            # fpm is used for building RPMs/DEBs
-            log_green('check that fpm is installed')
-            assert 'fpm' in sudo('gem list')
-
-            # A lot of Flocker tests use different docker images,
-            # we don't want to have to download those images every time we
-            # spin up a new slave node. So we make sure they are cached
-            # locally when we bake the image.
-            log_green('check that images have been downloaded locally')
-            for image in self.local_docker_images():
-                log_green(' checking %s' % image)
-                if ':' in image:
-                    parts = image.split(':')
-                    expression = parts[0] + '.*' + parts[1]
-                    assert re.search(expression, sudo('docker images'))
-                else:
-                    assert image in sudo('docker images')
-
-            # CentOS 7 provides us with a fairly old git version, we install
-            # a recent version in /usr/local/bin.
-            # On Ubuntu we install the same git version to avoid any surprises
-            # with the jenkins git plugin.
-            log_green('check that git is installed locally')
-            assert file.exists("/usr/local/bin/git")
-
-            # and then update the PATH so that our new git comes first
-            log_green('check that /usr/local/bin is in path')
-            assert '/usr/local/bin/git' in run('which git')
-
-            # update pip
-            # We have a devpi cache in AWS which we will consume instead of
-            # going upstream to the PyPi servers.
-            # We specify that devpi caching server using -i \$PIP_INDEX_URL
-            # which requires as to include --trusted_host as we are not (yet)
-            # using  SSL on our caching box.
-            # The --trusted-host option is only available with pip 7
-            log_green('check that pip is the latest version')
-            assert '7.' in run('pip --version')
-
-            # The /tmp/acceptance.yaml file is deployed to the jenkins slave
-            # during bootstrapping. These are copied from the Jenkins Master
-            # /etc/slave_config directory.
-            # We just need to make sure that directory exists.
-            log_green('check that /etc/slave_config exists')
-            assert file.dir_exists("/etc/slave_config")
-            assert file.mode_is("/etc/slave_config", "777")
-
-            # pypy will be used in the acceptance tests
-            log_green('check that pypy is available')
-            assert '2.6.1' in run('pypy --version')
-
-    def add_user_to_docker_group(self):
-        """ make sure the user running jenkins is part of the docker group """
-        log_green('adding the user running jenkins into the docker group')
-        data = load_state_from_disk()
-        with settings(hide('warnings', 'running', 'stdout', 'stderr'),
-                      warn_only=True, capture=True):
-            if 'centos' in data['distribution']:
-                user_ensure('centos', home='/home/centos', shell='/bin/bash')
-                group_ensure('docker', gid=55)
-                group_user_ensure('docker', 'centos')
-
-            if 'ubuntu' in data['distribution']:
-                user_ensure('ubuntu', home='/home/ubuntu', shell='/bin/bash')
-                group_ensure('docker', gid=55)
-                group_user_ensure('docker', 'ubuntu')
-
-    def bootstrap_jenkins_slave_centos7(self):
-        # ec2 hosts get their ip addresses using dhcp, we need to know the new
-        # ip address of our box before we continue our provisioning tasks.
-        # we load the state from disk, and store the ip in ec2_host#
-        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
-        with settings(host_string=ec2_host):
-            install_os_updates(distribution='centos7')
-
-            # make sure our umask is set to 022
-            self.fix_umask()
-
-            # ttys are tricky, lets make sure we don't need them
-            disable_requiretty_on_sudoers()
-
-            # when we sudo, we want to keep our original environment variables
-            disable_env_reset_on_sudo()
-
-            add_epel_yum_repository()
-
-            install_centos_development_tools()
-
-            # installs a bunch of required packages
-            yum_install(packages=self.centos7_required_packages())
-
-            # installing the source for the centos kernel is a bit of an odd
-            # process these days.
-            yum_install_from_url(
-                "http://vault.centos.org/7.1.1503/updates/Source/SPackages/"
-                "kernel-3.10.0-229.11.1.el7.src.rpm",
-                "non-available-kernel-src")
-
-            # we want to be running the latest kernel before installing ZFS
-            # so, lets reboot and make sure we do.
-            with settings(warn_only=True):
-                reboot()
-            wait_for_ssh(load_state_from_disk()['ip_address'])
-
-            # install the latest ZFS from testing
-            add_zfs_yum_repository()
-            yum_install_from_url(
-                "http://archive.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm",
-                "zfs-release")
-            install_zfs_from_testing_repository()
-
-            # note: will reboot the host for us if selinux is disabled
-            enable_selinux()
-            wait_for_ssh(load_state_from_disk()['ip_address'])
-
-        # these are likely to happen after a reboot
-        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
-        with settings(host_string=ec2_host):
-            # brings up the firewall
-            enable_firewalld_service()
-
-            # we create a docker group ourselves, as we want to be part
-            # of that group when the daemon first starts.
-            create_docker_group()
-            self.add_user_to_docker_group()
-            install_docker()
-
-            # ubuntu uses dash which causes jenkins jobs to fail
-            self.symlink_sh_to_bash()
-
-            # some flocker acceptance tests fail when we don't have
-            # a know_hosts file
-            sudo("touch /root/.ssh/known_hosts")
-
-            # generate a id_rsa_flocker
-            sudo("test -e  $HOME/.ssh/id_rsa_flocker || ssh-keygen -N '' "
-                 "-f $HOME/.ssh/id_rsa_flocker")
-
-            # and fix perms on /root/,ssh
-            sudo("chmod -R 0600 /root/.ssh")
-
-            # TODO: this may not be needed, as packaging is done on a docker img
-            install_system_gem('fpm')
-
-            systemd(service='docker', restart=True)
-            systemd(service='nginx', start=True, unmask=True)
-
-            # cache some docker images locally to speed up some of our tests
-            for docker_image in self.local_docker_images():
-                cache_docker_image_locally(docker_image)
-
-            # centos has a fairly old git, so we install the latest version
-            # in every box.
-            install_recent_git_from_source()
-            add_usr_local_bin_to_path()
-
-            # to use wheels, we want the latest pip
-            update_system_pip_to_latest_pip()
-
-            # cache the latest python modules and dependencies in the local
-            # user cache
-            git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
-            with cd('flocker'):
-                run('pip install --quiet --user .')
-                run('pip install --quiet --user "Flocker[dev]"')
-                run('pip install --quiet --user python-subunit junitxml')
-
-            # nginx is used during the acceptance tests, the VM built by
-            # flocker provision will connect to the jenkins slave on p 80
-            # and retrieve the just generated rpm/deb file
-            self.install_nginx()
-
-            # /etc/slave_config is used by the jenkins_slave plugin to
-            # transfer files from the master to the slave
-            self.create_etc_slave_config()
-
-            # installs python-pypy onto /opt/python-pypy/2.6.1 and symlinks it
-            # to /usr/local/bin/pypy
-            self.install_python_pypy('2.6.1')
-
-    def bootstrap_jenkins_slave_ubuntu14(self):
-        # ec2 hosts get their ip addresses using dhcp, we need to know the new
-        # ip address of our box before we continue our provisioning tasks.
-        # we load the state from disk, and store the ip in ec2_host#
-        ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
-        with settings(host_string=ec2_host):
-            install_os_updates(distribution='ubuntu14.04')
-
-            enable_apt_repositories('deb',
-                                    'http://archive.ubuntu.com/ubuntu',
-                                    '$(lsb_release -sc)',
-                                    'main universe restricted multiverse')
-
-            # make sure our umask is set to 022
-            self.fix_umask()
-
-            # ttys are tricky, lets make sure we don't need them
-            disable_requiretty_on_sudoers()
-            disable_requiretty_on_sshd_config()
-
-            # when we sudo, we want to keep our original environment variables
-            disable_env_reset_on_sudo()
-
-            install_ubuntu_development_tools()
-
-            # installs a bunch of required packages
-            apt_install(packages=self.ubuntu14_required_packages())
-
-            # install the latest ZFS from testing
-            # add_zfs_ubuntu_repository()
-            # install_zfs_from_testing_repository()
-
-            # we create a docker group ourselves, as we want to be part
-            # of that group when the daemon first starts.
-            create_docker_group()
-            self.add_user_to_docker_group()
-            install_docker()
-
-            # ubuntu uses dash which causes jenkins jobs to fail
-            self.symlink_sh_to_bash()
-
-            # some flocker acceptance tests fail when we don't have
-            # a know_hosts file
-            sudo("touch /root/.ssh/known_hosts")
-
-            # generate a id_rsa_flocker
-            sudo("test -e  $HOME/.ssh/id_rsa_flocker || ssh-keygen -N '' "
-                 "-f $HOME/.ssh/id_rsa_flocker")
-
-            # and fix perms on /root/,ssh
-            sudo("chmod -R 0600 /root/.ssh")
-
-            apt_install_from_url('rpmlint',
-                                 'https://launchpad.net/ubuntu/+archive/'
-                                 'primary/+files/rpmlint_1.5-1_all.deb')
-
-            # TODO: this may not be needed, as packaging is done on a docker img
-            install_system_gem('fpm')
-
-            # systemd(service='docker', restart=True)
-            # systemd(service='nginx', start=True, unmask=True)
-
-            # cache some docker images locally to speed up some of our tests
-            for docker_image in self.local_docker_images():
-                cache_docker_image_locally(docker_image)
-
-            # centos has a fairly old git, so we install the latest version
-            # in every box.
-            install_recent_git_from_source()
-            add_usr_local_bin_to_path()
-
-            # to use wheels, we want the latest pip
-            update_system_pip_to_latest_pip()
-
-            # cache the latest python modules and dependencies in the local
-            # user cache
-            git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
-            with cd('flocker'):
-                run('pip install --quiet --user .')
-                run('pip install --quiet --user "Flocker[dev]"')
-                run('pip install --quiet --user python-subunit junitxml')
-
-            # nginx is used during the acceptance tests, the VM built by
-            # flocker provision will connect to the jenkins slave on p 80
-            # and retrieve the just generated rpm/deb file
-            self.install_nginx()
-
-            # /etc/slave_config is used by the jenkins_slave plugin to
-            # transfer files from the master to the slave
-            self.create_etc_slave_config()
-
-            # installs python-pypy onto /opt/python-pypy/2.6.1 and symlinks it
-            # to /usr/local/bin/pypy
-            self.install_python_pypy('2.6.1')
-
-    def centos7_required_packages(self):
-        return ["kernel-devel",
-                "kernel",
-                "ncurses-devel",
-                "hmaccalc",
-                "zlib-devel",
-                "binutils-devel",
-                "elfutils-libelf-devel",
-                "rpm-build",
-                "redhat-rpm-config",
-                "asciidoc",
-                "perl-ExtUtils-Embed",
-                "audit-libs-devel",
-                "elfutils-devel",
-                "newt-devel",
-                "numactl-devel",
-                "pciutils-devel",
-                "pesign",
-                "xmlto",
-                "git",
-                "python-devel",
-                "python-tox",
-                "python-virtualenv",
-                "rpmdevtools",
-                "rpmlint",
-                "rpm-build",
-                "libffi-devel",
-                "@buildsys-build",
-                "openssl-devel",
-                "wget",
-                "curl",
-                "enchant",
-                "python-pip",
-                "java-1.7.0-openjdk-headless",
-                "libffi-devel",
-                "rpmlint",
-                "ntp",
-                "createrepo",
-                "gettext-devel",
-                "expat-devel",
-                "libcurl-devel",
-                "zlib-devel",
-                "perl-devel",
-                "openssl-devel",
-                "nginx",
-                "subversion-perl",
-                # Docker with SELinux requires docker-selinux
-                # https://github.com/docker/docker/issues/15498
-                "docker-engine-selinux",
-                "ruby-devel"]
-
-    def ubuntu14_required_packages(self):
-        return ["apt-transport-https",
-                "software-properties-common",
-                "build-essential",
-                "python-virtualenv",
-                "desktop-file-utils",
-                "git",
-                "python-dev",
-                "python-tox",
-                "python-virtualenv",
-                "libffi-dev",
-                "libssl-dev",
-                "wget",
-                "curl",
-                "enchant",
-                "openjdk-7-jre-headless",
-                "libffi-dev",
-                "lintian",
-                "ntp",
-                "rpm2cpio",
-                "createrepo",
-                # "gettext-dev",
-                "libexpat1-dev",
-                "libcurl4-openssl-dev",
-                "zlib1g-dev",
-                "libwww-curl-perl",
-                "libssl-dev",
-                "nginx",
-                "libsvn-perl",
-                "ruby-dev"]
-
-    def check_for_missing_environment_variables(self, cloud_type=None):
-        """ checks for required environment variables
-
-        Double checks that the minimum environment variables have been
-        configured correctly.
-
-        :param string cloud_type: The cloud type to use 'ec2', 'rackspace'
-        """
-        if not cloud_type:
-            cloud_type = []
-
-        cloud_vars = {'ec2': ['AWS_KEY_PAIR',
-                              'AWS_KEY_FILENAME',
-                              'AWS_SECRET_ACCESS_KEY',
-                              'AWS_ACCESS_KEY_ID'],
-
-                      'rackspace': ['OS_USERNAME',
-                                    'OS_TENANT_NAME',
-                                    'OS_PASSWORD',
-                                    'OS_AUTH_URL',
-                                    'OS_AUTH_SYSTEM',
-                                    'OS_REGION_NAME',
-                                    'RACKSPACE_KEY_PAIR',
-                                    'RACKSPACE_KEY_FILENAME',
-                                    'OS_NO_CACHE']
-                      }
-
-        for cloud in cloud_type:
-            if not set(cloud_vars[cloud]).issubset(set(os.environ)):
-                return False
-        return True
-
-    def create_etc_slave_config(self):
-        """ creates /etc/slave_config directory on master
-
-        /etc/slave_config is used by jenkins slave_plugin.
-        it allows files to be copied from the master to the slave.
-        These files are copied to /etc/slave_config on the slave.
-        """
-        # TODO: fix these permissions, likely ubuntu/centos/jenkins users
-        # need read/write permissions.
-        log_green('create /etc/slave_config')
-        with settings(hide('warnings', 'running', 'stdout', 'stderr'),
-                      warn_only=True, capture=True):
-            dir_ensure('/etc/slave_config', mode="777", use_sudo=True)
-
-    def ec2(self):
-        f_ec2()
-
-    def fix_umask(self):
-        """ Sets umask to 022
-
-        fix an issue with the the build package process where it fails, due
-        the files in the produced package have the wrong permissions.
-        """
-        with settings(hide('warnings', 'running', 'stdout', 'stderr'),
-                      warn_only=True, capture=True):
-
-            sed('/etc/login.defs',
-                'USERGROUPS_ENAB.*yes', 'USERGROUPS_ENAB no',
-                use_sudo=True)
-
-            sed('/etc/login.defs',
-                'UMASK.*', 'UMASK  022',
-                use_sudo=True)
-
-            data = load_state_from_disk()
-
-            homedir = '/home/' + data['username'] + '/'
-            for f in [homedir + '.bash_profile',
-                      homedir + '.bashrc']:
-                file_append(filename=f, text='umask 022')
-                file_attribs(f, mode=750, owner=data['username'])
-
-    def get_cloud_environment(self):
-        """ returns cloud_type from command line arguments
-
-        returns the cloud type from a fab execution string:
-        fab it:cloud=rackspace,distribution=centos7
-        """
-        clouds = []
-        for action in sys.argv:
-            if 'cloud=ec2' in action:
-                clouds.append('ec2')
-            if 'cloud=rackspace' in action:
-                clouds.append('rackspace')
-        return clouds
-
-    def install_nginx(self):
-        """ installs nginx
-
-            nginx is used for the packaging process.
-            the acceptance tests will produce a rpm/deb package.
-            that package is then made available on http so that the acceptance
-            test node can connect to it as a yub/deb repository and download,
-            install the package during the acceptance tests.
-        """
-
-        data = load_state_from_disk()
-        if 'centos' in data['username']:
-            yum_install(packages=['nginx'])
-            systemd('nginx', start=False, unmask=True)
-            systemd('nginx', start=True, unmask=True)
-            enable_firewalld_service()
-            add_firewalld_port('80/tcp', permanent=True)
-        if 'ubuntu' in data['username']:
-            sudo('apt-get -y install nginx')
-            # systemd('nginx', start=False, unmask=True)
-            # systemd('nginx', start=True, unmask=True)
-            # enable_firewalld_service()
-            # add_firewalld_port('80/tcp', permanent=True)
-        # give it some time for the dockerd to restart
-        sleep(20)
-
-    def local_docker_images(self):
-            return ['busybox',
-                    'openshift/busybox-http-app',
-                    'python:2.7-slim',
-                    'clusterhqci/fpm-ubuntu-trusty',
-                    'clusterhqci/fpm-ubuntu-vivid',
-                    'clusterhqci/fpm-centos-7']
-
-    def rackspace(self):
-        f_rackspace()
-        # Rackspace servers use root instead of the 'centos/ubuntu'
-        # when they first boot.
-        env.user = 'root'
-
-    def segredos(self):
-        secrets = yaml.load(open('segredos/ci-platform/all/all.yaml', 'r'))
-        return secrets
-
-    def symlink_sh_to_bash(self):
-        """ Forces /bin/sh to point to /bin/bash
-
-        jenkins seems to default to /bin/dash instead of bash
-        on ubuntu. There is a shell config parameter that I haven't
-        to set, so in order to force ubuntu nodes to execute jobs
-        using bash, let's symlink /bin/sh -> /bin/bash
-        """
-        # read distribution from state file
-        data = load_state_from_disk()
-        if 'ubuntu' in data['distribution'].lower():
-            sudo('/bin/rm /bin/sh')
-            sudo('/bin/ln -s /bin/bash /bin/sh')
-
-    def install_python_pypy(self,
-                            version,
-                            replace=False,
-                            pypy_home='/opt/python-pypy',
-                            mode='755'):
-        """ installs python pypy """
-        dir_ensure(pypy_home, mode=mode, use_sudo=True)
-        pypy_path = "%s/%s/bin/pypy" % (pypy_home, version)
-        pathname = "pypy-%s-linux_x86_64-portable" % version
-        tgz = "%s.tar.bz2" % pathname
-        url = "https://bitbucket.org/squeaky/portable-pypy/downloads/%s" % tgz
-
-        if not file_exists(pypy_path):
-            with cd(pypy_home):
-                sudo('wget -c %s' % url)
-                sudo('tar xjf %s' % tgz)
-                sudo('mv %s %s' % (pathname, version))
-                sudo('ln -s %s /usr/local/bin/pypy' % pypy_path)
+from tests.acceptance import acceptance_tests
 
 
 @task
@@ -961,11 +92,10 @@ def down(cloud=None):
     instance_id = data['id']
     env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    cookbook = MyCookbooks()
     if data['cloud_type'] == 'ec2':
-        cookbook.ec2()
+        ec2()
     if data['cloud_type'] == 'rackspace':
-        cookbook.rackspace()
+        rackspace()
     f_down(cloud=cloud_type,
            instance_id=instance_id,
            region=region,
@@ -1049,11 +179,10 @@ def it(cloud, distribution):
     :param string cloud: The cloud type to use 'ec2', 'rackspace'
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
-    cookbook = MyCookbooks()
     if cloud == 'ec2':
-        cookbook.ec2()
+        ec2()
     if cloud == 'rackspace':
-        cookbook.rackspace()
+        rackspace()
 
     up(cloud=cloud, distribution=distribution)
     bootstrap(distribution)
@@ -1082,12 +211,11 @@ def bootstrap(distribution=None):
         distribution = data['os_release']['ID'] + \
             data['os_release']['VERSION_ID']
 
-    cookbook = MyCookbooks()
     if distribution == 'centos7':
-        cookbook.bootstrap_jenkins_slave_centos7()
+        bootstrap_jenkins_slave_centos7()
 
     if 'ubuntu14.04' in distribution:
-        cookbook.bootstrap_jenkins_slave_ubuntu14()
+        bootstrap_jenkins_slave_ubuntu14()
 
 
 @task
@@ -1105,9 +233,9 @@ def status():
     env.key_filename = C[cloud_type][distribution]['key_filename']
 
     if data['cloud_type'] == 'ec2':
-        cookbook.ec2()
+        ec2()
     if data['cloud_type'] == 'rackspace':
-        cookbook.rackspace()
+        rackspace()
 
     f_status(cloud=cloud_type,
              region=region,
@@ -1152,17 +280,17 @@ def tests():
     env.key_filename = C[cloud_type][distribution]['key_filename']
 
     if data['cloud_type'] == 'ec2':
-        cookbook.ec2()
+        ec2()
     if data['cloud_type'] == 'rackspace':
-        cookbook.rackspace()
+        rackspace()
 
-    cookbook.acceptance_tests(cloud=cloud_type,
-                              region=region,
-                              instance_id=instance_id,
-                              access_key_id=access_key_id,
-                              secret_access_key=secret_access_key,
-                              distribution=distribution,
-                              username=username)
+    acceptance_tests(cloud=cloud_type,
+                     region=region,
+                     instance_id=instance_id,
+                     access_key_id=access_key_id,
+                     secret_access_key=secret_access_key,
+                     distribution=distribution,
+                     username=username)
 
 
 @task
@@ -1172,8 +300,6 @@ def up(cloud=None, distribution=None):
     :param string cloud: The cloud type to use 'ec2', 'rackspace'
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
-
-    cookbook = MyCookbooks()
 
     if is_there_state():
         data = load_state_from_disk()
@@ -1188,9 +314,9 @@ def up(cloud=None, distribution=None):
         env.key_filename = C[cloud_type][distribution]['key_filename']
 
         if data['cloud_type'] == 'ec2':
-            cookbook.ec2()
+            ec2()
         if data['cloud_type'] == 'rackspace':
-            cookbook.rackspace()
+            rackspace()
 
         f_up(cloud=cloud_type,
              region=region,
@@ -1225,8 +351,6 @@ def up(cloud=None, distribution=None):
 """
     ___main___
 """
-cookbook = MyCookbooks()
-
 # is this a fab help ?
 if 'help' in sys.argv:
     help()
@@ -1241,7 +365,7 @@ if is_there_state():
     list_of_clouds.append(data['cloud_type'])
 else:
     # no state.json, we expect to find a cloud='' option in our argv
-    list_of_clouds = cookbook.get_cloud_environment()
+    list_of_clouds = get_cloud_environment()
 
 if not len(list_of_clouds):
     # sounds like we are asking for a task that require cloud environment
@@ -1251,12 +375,12 @@ if not len(list_of_clouds):
 
 # right, we have a 'cloud_type' in list_of_clouds, lets find out if the env
 # variables we need for that cloud have been defined.
-if not cookbook.check_for_missing_environment_variables(list_of_clouds):
+if not check_for_missing_environment_variables(list_of_clouds):
     help()
     exit(1)
 
 # retrieve some of the secrets from the segredos dict
-jenkins_plugin_dict = cookbook.segredos()[
+jenkins_plugin_dict = segredos()[
     'env']['default']['jenkins']['clouds']['jclouds_plugin'][0]
 
 # soaks up the environment variables
@@ -1297,7 +421,7 @@ if 'ec2' in list_of_clouds:
             'ami': 'ami-c7d092f7',
             'username': 'centos',
             'disk_name': '/dev/sda1',
-            'disk_size': '40',
+            'disk_size': '8',
             'instance_type': ec2_instance_type,
             'key_pair': ec2_key_pair,
             'region': ec2_region,
@@ -1313,7 +437,7 @@ if 'ec2' in list_of_clouds:
             'ami': 'ami-87bea5b7',
             'username': 'ubuntu',
             'disk_name': '/dev/sda1',
-            'disk_size': '40',
+            'disk_size': '8',
             'instance_type': ec2_instance_type,
             'key_pair': ec2_key_pair,
             'region': ec2_region,
