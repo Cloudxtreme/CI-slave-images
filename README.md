@@ -91,8 +91,124 @@ NOTE: if you get an:
 ```
 while bootstrapping an ubuntu instance, it is likely the base AMI is no longer
 available.
+
 Find out the new one from:
+
+
 http://cloud-images.ubuntu.com/locator/ec2/
 [us-west-2][trusty][14.04 LTS][amd64][ebs][Any][Any][hvm]
 
+
 and update the fabfile.py with the new AMI id, commit, push, etc.
+
+
+Updating Jenkins to use the new images:
+=======================================
+
+
+1. Generate the new Cloud server images used by Jenkins:
+
+    fab it:cloud=ec2,distribution=centos7 \
+        it:cloud=ec2,distribution=ubuntu14.04 \
+        it:cloud=rackspace,distribution=centos7 \
+        it:cloud=rackspace,distribution=ubuntu14.04 | tee /tmp/fabbing.it.log
+
+
+2. Gather the IDs for the different images:
+
+   grep the AWS AMIs from the log:
+
+    grep Image: fabbing.it.log
+    ami ami-nnnnnnnn Image:ami-nnnnnnnn
+    ami ami-nnnnnnnn Image:ami-nnnnnnnn
+
+
+   And The Rackspace AMIs:
+
+    grep "finished image" fabbing.it.log
+    finished image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
+    finished image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
+
+
+3. Clone the ci-platform and segredos git repositories:
+
+   https://github.com/ClusterHQ/ci-platform
+   https://github.com/ClusterHQ/segredos
+
+
+3. Update the segredos/ci-plaform/yaml dictionary with the new AMIs
+
+   Look under:
+
+    clouds:
+        images:
+            aws:
+                <my-region>:
+            rackspace:
+                <my-region>:
+
+
+3. Copy the new images across all the regions:
+
+* For AWS:
+
+on the AWS Console, find the new AMIs and click copy selecting the destination.
+Take note on the new AMI id and the destination.
+Then update the cloud/images/aws/<region>/ with the new AMIs
+
+* For RACKSPACE
+
+We only use Rackspace on a single region, so there's no need to
+copy the Cloud server images across regions for Rackspace.
+
+
+4. Generate a new Jenkins personal test server
+
+Follow the steps in the https://github.com/ClusterHQ/ci-platform
+Make sure you link group_vars to your local segredos repository copy.
+
+Then:
+
+    rake default aws
+
+
+5. Test a master build using your new personal test jenkins instance.
+
+Run the setupClusterHQFlocker job to generate the jenkins jobs for the
+*master* branch.
+
+
+6. Open a Pull Request:
+
+    git checkout -b my_new_branch
+    git add your changes to the segredos/ci-platform/yaml
+    git commit
+    git push your new branch
+    open a PR in GitHub
+
+
+7. Update JIRA Ticket
+
+Make sure there is a JIRA ticket/subtask mentioning that Jenkins master
+needs to be re-provisioned after your PR is accepted.
+(yes, there is another stage after 'ADDRESS_AND_MERGE', let's just call it DEPLOYMENT)
+
+
+8. Wait for JIRA to move to ACCEPTED
+
+
+8. Deploy the changes to the Jenkins Master
+
+   Until https://clusterhq.atlassian.net/browse/FLOC-2703 is complete, follow
+   these steps:
+
+   - update /etc/hosts on your laptop so that 'jenkins' points to the ci-live.clusterhq.com
+   - git checkout the master branch on for *ci-platform* and *segredos*
+   - run a vagrant provision to update the Jenkins Master
+
+
+9. Close the JIRA and its subtasks
+
+
+
+
