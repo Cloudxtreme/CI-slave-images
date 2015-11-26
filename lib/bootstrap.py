@@ -38,6 +38,7 @@ from lib.mycookbooks import (symlink_sh_to_bash,
                              add_user_to_docker_group,
                              install_docker,
                              local_docker_images,
+                             upgrade_kernel_and_grub,
                              install_nginx)
 
 
@@ -301,6 +302,9 @@ def bootstrap_jenkins_slave_ubuntu14():
     ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
     with settings(host_string=ec2_host):
         install_os_updates(distribution='ubuntu14.04')
+        # we want to be running the latest kernel
+        upgrade_kernel_and_grub(do_reboot=True)
+        wait_for_ssh(load_state_from_disk()['ip_address'])
 
         enable_apt_repositories('deb',
                                 'http://archive.ubuntu.com/ubuntu',

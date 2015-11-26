@@ -28,8 +28,10 @@ from bookshelf.api_v1 import (dir_ensure,
                               log_green,
                               load_state_from_disk,
                               enable_firewalld_service,
+                              log_yellow,
                               add_firewalld_port,
                               systemd,
+                              reboot,
                               yum_install)
 from bookshelf.api_v1 import (rackspace as f_rackspace,
                               ec2 as f_ec2)
@@ -229,3 +231,24 @@ def install_python_pypy(version,
             sudo('tar xjf %s' % tgz)
             sudo('mv %s %s' % (pathname, version))
             sudo('ln -s %s /usr/local/bin/pypy' % pypy_path)
+
+
+def upgrade_kernel_and_grub(do_reboot=False, log=True):
+    """ updates the kernel and the grub config """
+
+    if log:
+        log_yellow('upgrading kernel')
+
+    with settings(hide('running', 'stdout')):
+        sudo('unset UCF_FORCE_CONFFOLD; '
+             'export UCF_FORCE_CONFFNEW=YES; '
+             'ucf --purge /boot/grub/menu.lst; '
+             'export DEBIAN_FRONTEND=noninteractive ; '
+             'apt-get update; '
+             'apt-get -o Dpkg::Options::="--force-confnew" --force-yes -fuy '
+             'dist-upgrade')
+        with settings(warn_only=True):
+            if do_reboot:
+                if log:
+                    log_yellow('rebooting host')
+                reboot()
