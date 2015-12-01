@@ -140,6 +140,7 @@ Updating Jenkins to use the new images:
 
    Look under:
 
+   jenkins:
     clouds:
         images:
             aws:
@@ -158,8 +159,11 @@ Then update the cloud/images/aws/<region>/ with the new AMIs
 
 * For RACKSPACE
 
-We only use Rackspace on a single region, so there's no need to
-copy the Cloud server images across regions for Rackspace.
+It is easier to simply create a new image by defining a different region.
+```
+OS_REGION_NAME=IAD
+```
+and repeat the steps to generate the new image.
 
 
 4. Generate a new Jenkins personal test server
