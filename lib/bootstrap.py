@@ -10,7 +10,6 @@ from bookshelf.api_v1 import (add_epel_yum_repository,
                               apt_install_from_url,
                               yum_install_from_url,
                               load_state_from_disk,
-                              install_zfs_from_testing_repository,
                               install_os_updates,
                               install_ubuntu_development_tools,
                               enable_selinux,
@@ -39,6 +38,9 @@ from lib.mycookbooks import (symlink_sh_to_bash,
                              install_docker,
                              local_docker_images,
                              upgrade_kernel_and_grub,
+                             installs_zfs_from_testing_repository,
+                             fix_skb_rides_the_rocket,
+                             compiles_zfs_modules,
                              install_nginx)
 
 
@@ -66,12 +68,9 @@ def bootstrap_jenkins_slave_centos7():
         # installs a bunch of required packages
         yum_install(packages=centos7_required_packages())
 
-        # installing the source for the centos kernel is a bit of an odd
-        # process these days.
-        yum_install_from_url(
-            "http://vault.centos.org/7.1.1503/updates/Source/SPackages/"
-            "kernel-3.10.0-229.11.1.el7.src.rpm",
-            "non-available-kernel-src")
+        # apply skb_rides_the_rocket fix, which is also linked to:
+        # https://github.com/scala/scala-jenkins-infra/issues/26
+        fix_skb_rides_the_rocket()
 
         # we want to be running the latest kernel before installing ZFS
         # so, lets reboot and make sure we do.
@@ -84,7 +83,8 @@ def bootstrap_jenkins_slave_centos7():
         yum_install_from_url(
             "http://archive.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm",
             "zfs-release")
-        install_zfs_from_testing_repository()
+        installs_zfs_from_testing_repository()
+        compiles_zfs_modules()
 
         # note: will reboot the host for us if selinux is disabled
         enable_selinux()
@@ -254,6 +254,10 @@ def bootstrap_jenkins_slave_ubuntu14():
         # to /usr/local/bin/pypy
         install_python_pypy('2.6.1')
 
+        # apply skb_rides_the_rocket fix, which is also linked to:
+        # https://github.com/scala/scala-jenkins-infra/issues/26
+        fix_skb_rides_the_rocket()
+
 
 def centos7_required_packages():
     return ["kernel-devel",
@@ -263,6 +267,7 @@ def centos7_required_packages():
             "zlib-devel",
             "binutils-devel",
             "elfutils-libelf-devel",
+            "ethtool",
             "rpm-build",
             "redhat-rpm-config",
             "asciidoc",
@@ -319,6 +324,7 @@ def ubuntu14_required_packages():
             "wget",
             "curl",
             "enchant",
+            "ethtool",
             "openjdk-7-jre-headless",
             "libffi-dev",
             "lintian",

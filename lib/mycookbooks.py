@@ -17,6 +17,7 @@ from fabric.api import sudo, env
 from fabric.context_managers import settings, cd, hide
 from fabric.contrib.files import (sed,
                                   exists as file_exists,
+                                  contains as file_contains,
                                   append as file_append)
 
 from cuisine import (user_ensure,
@@ -32,6 +33,7 @@ from bookshelf.api_v1 import (dir_ensure,
                               add_firewalld_port,
                               systemd,
                               reboot,
+                              yum_install_from_url,
                               yum_install)
 from bookshelf.api_v1 import (rackspace as f_rackspace,
                               ec2 as f_ec2)
@@ -252,3 +254,29 @@ def upgrade_kernel_and_grub(do_reboot=False, log=True):
                 if log:
                     log_yellow('rebooting host')
                 reboot()
+
+
+def installs_zfs_from_testing_repository():
+    sudo("echo SPL_DKMS_DISABLE_STRIP=y >> /etc/sysconfig/spl")
+    sudo("echo ZFS_DKMS_DISABLE_STRIP=y >> /etc/sysconfig/zfs")
+    sudo("yum install --quiet -y --enablerepo=zfs-testing zfs")
+
+
+def compiles_zfs_modules():
+    """ fixes: https://github.com/zfsonlinux/zfs/issues/3801 """
+    sudo("dkms install spl/$(rpm -q spl --queryformat '%{version}')")
+    sudo("dkms install zfs/$(rpm -q spl --queryformat '%{version}')")
+    sudo('modprobe zfs')
+
+
+def fix_skb_rides_the_rocket():
+    """ fixes an issue in the XEN driver
+    https://bugs.launchpad.net/ubuntu/+source/linux-lts-raring/+bug/1195474
+    """
+    with hide():
+        if not file_contains(text='ethtool -K eth0 sg off',
+                             filename='/etc/rc.local'):
+            file_append(text='ethtool -K eth0 sg off',
+                        filename='/etc/rc.local',
+                        use_sudo=True)
+        sudo('ethtool -K eth0 sg off')
