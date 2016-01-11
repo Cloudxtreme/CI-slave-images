@@ -175,6 +175,11 @@ def acceptance_tests_common_tests_for_flocker(cloud,
         assert sudo('docker --version | grep "1.9."')
         assert process.is_up("docker")
 
+        # checks for skb_rides_the_rocket fix
+        rc_local = '/etc/rc.local'
+        assert sudo("grep 'ethtool -K eth0 sg off' {}".format(rc_local))
+        assert sudo("test -x {} && echo executable".format(rc_local))
+
 
 def acceptance_tests_on_centos7_img_for_flocker(cloud,
                                                 region,

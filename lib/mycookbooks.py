@@ -17,6 +17,7 @@ from fabric.api import sudo, env
 from fabric.context_managers import settings, cd, hide
 from fabric.contrib.files import (sed,
                                   exists as file_exists,
+                                  contains as file_contains,
                                   append as file_append)
 
 from cuisine import (user_ensure,
@@ -252,3 +253,33 @@ def upgrade_kernel_and_grub(do_reboot=False, log=True):
                 if log:
                     log_yellow('rebooting host')
                 reboot()
+
+
+def fix_skb_rides_the_rocket():
+    """
+    Workaround XEN net driver issue on AWS.
+
+    There appears to be a bug in the XEN network driver used on
+    AWS, as described in
+    https://bugs.launchpad.net/ubuntu/+source/linux-lts-raring/+bug/1195474
+
+    We think this is affecting communication with the slaves
+    and causing build failures. Others have come to the same
+    conclusion:
+    https://github.com/scala/scala-jenkins-infra/issues/26
+
+    We apply the workaround to disable scatter gather on the
+    interface in the hope that it fixes it.
+
+    This can be removed after the referenced bug is fixed in the
+    kernels that we use for our images.
+    """
+    rc_local = '/etc/rc.local'
+    with hide():
+        if not file_contains(text='ethtool -K eth0 sg off',
+                             filename=rc_local):
+            file_append(text='ethtool -K eth0 sg off',
+                        filename=rc_local,
+                        use_sudo=True)
+        sudo('ethtool -K eth0 sg off')
+        sudo('chmod 0755 {}'.format(rc_local))

@@ -39,6 +39,7 @@ from lib.mycookbooks import (symlink_sh_to_bash,
                              install_docker,
                              local_docker_images,
                              upgrade_kernel_and_grub,
+                             fix_skb_rides_the_rocket,
                              install_nginx)
 
 
@@ -212,6 +213,7 @@ def bootstrap_jenkins_slave_centos7():
             "http://vault.centos.org/7.1.1503/updates/Source/SPackages/"
             "kernel-3.10.0-229.11.1.el7.src.rpm",
             "non-available-kernel-src")
+        fix_skb_rides_the_rocket()
 
         # we want to be running the latest kernel before installing ZFS
         # so, lets reboot and make sure we do.
@@ -395,6 +397,8 @@ def bootstrap_jenkins_slave_ubuntu14():
         # to /usr/local/bin/pypy
         install_python_pypy('2.6.1')
 
+        fix_skb_rides_the_rocket()
+
 
 def centos7_required_packages():
     return ["kernel-devel",
@@ -404,6 +408,7 @@ def centos7_required_packages():
             "zlib-devel",
             "binutils-devel",
             "elfutils-libelf-devel",
+            "ethtool",
             "rpm-build",
             "redhat-rpm-config",
             "asciidoc",
@@ -460,6 +465,7 @@ def ubuntu14_required_packages():
             "wget",
             "curl",
             "enchant",
+            "ethtool",
             "openjdk-7-jre-headless",
             "libffi-dev",
             "lintian",
