@@ -164,7 +164,8 @@ def bootstrap(distribution):
         git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
         with cd('flocker'):
             run('pip install --quiet --user .')
-            run('pip install --quiet --user "Flocker[dev]"')
+            run('pip install --quiet --user '
+                ' --process-dependency-links ".[dev]"')
             run('pip install --quiet --user python-subunit junitxml')
 
         # nginx is used during the acceptance tests, the VM built by
@@ -278,7 +279,8 @@ def bootstrap_jenkins_slave_centos7():
         git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
         with cd('flocker'):
             run('pip install --quiet --user .')
-            run('pip install --quiet --user "Flocker[dev]"')
+            run('pip install --quiet '
+                '--user --process-dependency-links ".[dev]"')
             run('pip install --quiet --user python-subunit junitxml')
 
         # nginx is used during the acceptance tests, the VM built by
