@@ -37,6 +37,17 @@ from lib.bootstrap import (bootstrap_jenkins_slave_centos7,
 from tests.acceptance import acceptance_tests
 
 
+def setup_cloud_env(cloud_type):
+    if cloud_type == 'ec2':
+        ec2()
+    elif cloud_type == 'rackspace':
+        rackspace()
+    elif cloud_type == 'gce':
+        gce()
+    else:
+        raise ValueError("Unknown cloud type: {}".format(cloud_type))
+
+
 @task
 def create_image():
     """ create ami/image for either AWS, Rackspace or GCE """
@@ -93,10 +104,7 @@ def down(cloud=None):
     instance_id = data['id']
     env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    if data['cloud_type'] == 'ec2':
-        ec2()
-    if data['cloud_type'] == 'rackspace':
-        rackspace()
+    setup_cloud_env(cloud_type)
     f_down(cloud=cloud_type,
            instance_id=instance_id,
            region=region,
@@ -180,15 +188,7 @@ def it(cloud, distribution):
     :param string cloud: The cloud type to use 'ec2', 'rackspace'
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
-    if cloud == 'ec2':
-        ec2()
-    elif cloud == 'rackspace':
-        rackspace()
-    elif cloud == 'gce':
-        gce()
-    else:
-        ValueError("Unknown cloud specified {}".format(cloud))
-
+    setup_cloud_env(cloud)
     up(cloud=cloud, distribution=distribution)
     bootstrap(distribution)
     tests()
@@ -237,11 +237,7 @@ def status():
     env.user = data['username']
     env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    if data['cloud_type'] == 'ec2':
-        ec2()
-    if data['cloud_type'] == 'rackspace':
-        rackspace()
-
+    setup_cloud_env(cloud_type)
     f_status(cloud=cloud_type,
              region=region,
              instance_id=instance_id,
@@ -283,13 +279,7 @@ def tests():
     instance_id = data['id']
     env.user = data['username']
     env.key_filename = C[cloud_type][distribution]['key_filename']
-
-    if data['cloud_type'] == 'ec2':
-        ec2()
-    elif data['cloud_type'] == 'rackspace':
-        rackspace()
-    elif data['cloud_type'] == 'gce':
-        gce()
+    setup_cloud_env(cloud_type)
 
     acceptance_tests(cloud=cloud_type,
                      region=region,
@@ -320,11 +310,7 @@ def up(cloud=None, distribution=None):
         env.user = data['username']
         env.key_filename = C[cloud_type][distribution]['key_filename']
 
-        if data['cloud_type'] == 'ec2':
-            ec2()
-        if data['cloud_type'] == 'rackspace':
-            rackspace()
-
+        setup_cloud_env(cloud_type)
         f_up(cloud=cloud_type,
              region=region,
              instance_id=instance_id,
@@ -513,7 +499,8 @@ if 'gce' in list_of_clouds:
             # 'tags': {'name': 'jenkins_slave_centos7_ondemand'}
         # },
         'ubuntu14.04': {
-            'base_image': 'ubuntu-14-04',
+            'base_image_prefix': 'ubuntu-1404',
+            'base_image_project': 'ubuntu-os-cloud',
             # 'username': 'root',
             # 'disk_name': '',
             # 'disk_size': '48',
