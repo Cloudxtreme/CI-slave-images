@@ -25,6 +25,7 @@ from bookshelf.api_v1 import (is_there_state,
 
 from lib.mycookbooks import (ec2,
                              rackspace,
+                             gce,
                              get_cloud_environment,
                              check_for_missing_environment_variables,
                              segredos)
@@ -38,7 +39,7 @@ from tests.acceptance import acceptance_tests
 
 @task
 def create_image():
-    """ create ami/image for either AWS or Rackspace """
+    """ create ami/image for either AWS, Rackspace or GCE """
     (year, month, day, hour, mins,
      sec, wday, yday, isdst) = datetime.utcnow().timetuple()
     date = "%s%s%s%s%s" % (year, month, day, hour, mins)
@@ -181,8 +182,12 @@ def it(cloud, distribution):
     """
     if cloud == 'ec2':
         ec2()
-    if cloud == 'rackspace':
+    elif cloud == 'rackspace':
         rackspace()
+    elif cloud == 'gce':
+        gce()
+    else:
+        ValueError("Unknown cloud specified {}".format(cloud))
 
     up(cloud=cloud, distribution=distribution)
     bootstrap(distribution)
@@ -281,8 +286,10 @@ def tests():
 
     if data['cloud_type'] == 'ec2':
         ec2()
-    if data['cloud_type'] == 'rackspace':
+    elif data['cloud_type'] == 'rackspace':
         rackspace()
+    elif data['cloud_type'] == 'gce':
+        gce()
 
     acceptance_tests(cloud=cloud_type,
                      region=region,
@@ -331,21 +338,8 @@ def up(cloud=None, distribution=None):
         # no state file around, lets create a new VM
         # and use defaults values we have in our config 'C' dictionary
         f_create_server(cloud=cloud,
-                        region=C[cloud][distribution]['region'],
-                        access_key_id=C[cloud][distribution]['access_key_id'],
-                        secret_access_key=C[cloud][distribution][
-                            'secret_access_key'],
                         distribution=distribution,
-                        disk_name=C[cloud][distribution]['disk_name'],
-                        disk_size=C[cloud][distribution]['disk_size'],
-                        ami=C[cloud][distribution]['ami'],
-                        key_pair=C[cloud][distribution]['key_pair'],
-                        instance_type=C[cloud][distribution]['instance_type'],
-                        instance_name=C[cloud][distribution]['instance_name'],
-                        username=C[cloud][distribution]['username'],
-                        security_groups=C[cloud][distribution][
-                            'security_groups'],
-                        tags=C[cloud][distribution]['tags'])
+                        **C[cloud][distribution])
 
 
 """
@@ -492,6 +486,51 @@ if 'rackspace' in list_of_clouds:
             'auth_url': rackspace_auth_url,
             'key_filename': rackspace_key_filename,
             'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
+        }
+    }
+
+if 'gce' in list_of_clouds:
+    C['gce'] = {
+        # 'centos7': {
+        #     "base_image": "centos-7"
+
+            # 'username': 'root',
+            # 'disk_name': '',
+            # 'disk_size': '48',
+            # 'instance_type': rackspace_flavor,
+            # 'key_pair': rackspace_key_pair,
+            # 'region': rackspace_region,
+            # 'secret_access_key': rackspace_password,
+            # 'access_key_id': rackspace_username,
+            # 'security_groups': '',
+            # 'instance_name': 'jenkins_slave_centos7_ondemand',
+            # 'description': 'jenkins_slave_centos7_ondemand',
+            # 'public_key': rackspace_public_key,
+            # 'auth_system': rackspace_auth_system,
+            # 'tenant': rackspace_tenant_name,
+            # 'auth_url': rackspace_auth_url,
+            # 'key_filename': rackspace_key_filename,
+            # 'tags': {'name': 'jenkins_slave_centos7_ondemand'}
+        # },
+        'ubuntu14.04': {
+            'base_image': 'ubuntu-14-04',
+            # 'username': 'root',
+            # 'disk_name': '',
+            # 'disk_size': '48',
+            # 'instance_type': rackspace_flavor,
+            # 'key_pair': rackspace_key_pair,
+            # 'region': rackspace_region,
+            # 'secret_access_key': rackspace_password,
+            # 'access_key_id': rackspace_username,
+            # 'security_groups': '',
+            # 'instance_name': 'jenkins_slave_ubuntu14_ondemand',
+            # 'description': 'jenkins_slave_ubuntu14_ondemand',
+            # 'public_key': rackspace_public_key,
+            # 'auth_system': rackspace_auth_system,
+            # 'tenant': rackspace_tenant_name,
+            # 'auth_url': rackspace_auth_url,
+            # 'key_filename': rackspace_key_filename,
+            # 'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }
 

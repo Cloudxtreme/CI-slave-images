@@ -48,6 +48,15 @@ For Rackspace:
     * OS_NO_CACHE
 
 
+For Google Compute Engine:
+
+    * GCE_PUBLIC_KEY_FILENAME
+
+    * GCE_PRIVATE_KEY_FILENAME
+
+    * OS_USERNAME
+
+
 create your virtualenv:
 
 ```
@@ -212,7 +221,3 @@ needs to be re-provisioned after your PR is accepted.
 
 
 9. Close the JIRA and its subtasks
-
-
-
-

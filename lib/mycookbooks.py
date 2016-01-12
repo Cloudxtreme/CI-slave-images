@@ -34,7 +34,8 @@ from bookshelf.api_v1 import (dir_ensure,
                               reboot,
                               yum_install)
 from bookshelf.api_v1 import (rackspace as f_rackspace,
-                              ec2 as f_ec2)
+                              ec2 as f_ec2,
+                              gce as f_gce)
 
 
 def add_user_to_docker_group():
@@ -103,6 +104,14 @@ def create_etc_slave_config():
 
 def ec2():
     f_ec2()
+
+
+def gce():
+    f_gce()
+
+
+def rackspace():
+    f_rackspace()
 
 
 def fix_umask():
@@ -185,13 +194,6 @@ def local_docker_images():
                 'clusterhqci/fpm-ubuntu-trusty',
                 'clusterhqci/fpm-ubuntu-vivid',
                 'clusterhqci/fpm-centos-7']
-
-
-def rackspace():
-    f_rackspace()
-    # Rackspace servers use root instead of the 'centos/ubuntu'
-    # when they first boot.
-    env.user = 'root'
 
 
 def segredos():
