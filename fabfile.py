@@ -58,18 +58,27 @@ def create_image():
     data = load_state_from_disk()
     cloud_type = data['cloud_type']
     distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_name = C[cloud_type][distribution]['instance_name']
     description = C[cloud_type][distribution]['description']
 
+    if cloud_type == 'gce':
+        kwargs = dict(
+            zone=data['zone'],
+            project=data['project'],
+            instance_name=data['instance_name'],
+            name=description + "-" + date,
+        )
+    else:
+        kwargs = dict(
+            region=data['region'],
+            access_key_id=C[cloud_type][distribution]['access_key_id'],
+            secret_access_key=C[cloud_type][distribution]['secret_access_key'],
+            instance_id=data['id'],
+            name=description + "_" + date,
+        )
+
     f_create_image(cloud=cloud_type,
-                   region=data['region'],
-                   access_key_id=access_key_id,
-                   secret_access_key=secret_access_key,
-                   instance_id=data['id'],
-                   name=instance_name + "_" + date,
-                   description=description)
+                   description=description,
+                   **kwargs)
 
 
 @task
@@ -122,13 +131,13 @@ def help():
             $ fab help
 
             # does the whole thing in one go
-            $ fab it:cloud=[ec2|rackspace],distribution=[centos7|ubuntu14.04]
+            $ fab it:cloud=[ec2|rackspace|gce],distribution=[centos7|ubuntu14.04]
 
             # boots an existing instance
             $ fab up
 
             # creates a new instance
-            $ fab up:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
+            $ fab up:cloud=<ec2|rackspace|gce>,distribution=<centos7|ubuntu14.04>
 
             # installs packages on an existing instance
             $ fab bootstrap:distribution=<centos7|ubuntu14.04>
@@ -271,23 +280,12 @@ def tests():
     """ run tests against an existing instance """
     data = load_state_from_disk()
     cloud_type = data['cloud_type']
-    username = data['username']
     distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    region = data['region']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
     env.user = data['username']
     env.key_filename = C[cloud_type][distribution]['key_filename']
     setup_cloud_env(cloud_type)
 
-    acceptance_tests(cloud=cloud_type,
-                     region=region,
-                     instance_id=instance_id,
-                     access_key_id=access_key_id,
-                     secret_access_key=secret_access_key,
-                     distribution=distribution,
-                     username=username)
+    acceptance_tests(distribution=distribution)
 
 
 @task
@@ -318,14 +316,13 @@ def up(cloud=None, distribution=None):
              secret_access_key=secret_access_key,
              username=username)
     else:
-        env.user = C[cloud][distribution]['username']
+        env.user = C[cloud][distribution]['creation_args']['username']
         env.key_filename = C[cloud][distribution]['key_filename']
 
         # no state file around, lets create a new VM
         # and use defaults values we have in our config 'C' dictionary
         f_create_server(cloud=cloud,
-                        distribution=distribution,
-                        **C[cloud][distribution])
+                        **C[cloud][distribution]['creation_args'])
 
 
 """
@@ -391,6 +388,15 @@ if 'rackspace' in list_of_clouds:
     rackspace_public_key = jenkins_plugin_dict['publicKey'][0]
     rackspace_key_filename = os.environ['RACKSPACE_KEY_FILENAME']
 
+# GCE environment variables,
+if 'gce' in list_of_clouds:
+    gce_private_key_filename = os.environ['GCE_PRIVATE_KEY']
+    with open(os.environ['GCE_PUBLIC_KEY'], 'r') as f:
+        gce_public_key = f.read()
+    gce_project = os.environ['GCE_PROJECT']
+    gce_zone = os.environ['GCE_ZONE']
+    gce_machine_type = os.getenv('GCE_MACHINE_TYPE', 'n1-standard-2')
+
 # We define a dictionary containing API secrets, disk sizes, base amis,
 # and other bits and pieces that we will use for creating a new EC2 or Rackspace
 # instance and authenticate over ssh.
@@ -398,80 +404,86 @@ C = {}
 if 'ec2' in list_of_clouds:
     C['ec2'] = {
         'centos7': {
-            'ami': 'ami-c7d092f7',
-            'username': 'centos',
-            'disk_name': '/dev/sda1',
-            'disk_size': '48',
-            'instance_type': ec2_instance_type,
-            'key_pair': ec2_key_pair,
-            'region': ec2_region,
-            'secret_access_key': ec2_secret_access_key,
-            'access_key_id': ec2_access_key_id,
-            'security_groups': ['ssh'],
-            'instance_name': 'jenkins_slave_centos7_ondemand',
+            'creation_args': {
+                'ami': 'ami-c7d092f7',
+                'username': 'centos',
+                'disk_name': '/dev/sda1',
+                'disk_size': '48',
+                'instance_type': ec2_instance_type,
+                'key_pair': ec2_key_pair,
+                'region': ec2_region,
+                'secret_access_key': ec2_secret_access_key,
+                'access_key_id': ec2_access_key_id,
+                'security_groups': ['ssh'],
+                'tags': {'name': 'jenkins_slave_centos7_ondemand'}
+            },
             'description': 'jenkins_slave_centos7_ondemand',
             'key_filename': ec2_key_filename,
-            'tags': {'name': 'jenkins_slave_centos7_ondemand'}
         },
         'ubuntu14.04': {
-            'ami': 'ami-87bea5b7',
-            'username': 'ubuntu',
-            'disk_name': '/dev/sda1',
-            'disk_size': '48',
-            'instance_type': ec2_instance_type,
-            'key_pair': ec2_key_pair,
-            'region': ec2_region,
-            'secret_access_key': ec2_secret_access_key,
-            'access_key_id': ec2_access_key_id,
-            'security_groups': ['ssh'],
-            'instance_name': 'jenkins_slave_ubuntu14_ondemand',
+            'creation_args': {
+                'ami': 'ami-87bea5b7',
+                'username': 'ubuntu',
+                'disk_name': '/dev/sda1',
+                'disk_size': '48',
+                'instance_type': ec2_instance_type,
+                'key_pair': ec2_key_pair,
+                'region': ec2_region,
+                'secret_access_key': ec2_secret_access_key,
+                'access_key_id': ec2_access_key_id,
+                'security_groups': ['ssh'],
+                'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
+            },
             'description': 'jenkins_slave_ubuntu14_ondemand',
             'key_filename': ec2_key_filename,
-            'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }
 
 if 'rackspace' in list_of_clouds:
     C['rackspace'] = {
         'centos7': {
-            'ami': 'CentOS 7 (PVHVM)',
-            'username': 'root',
-            'disk_name': '',
-            'disk_size': '48',
-            'instance_type': rackspace_flavor,
-            'key_pair': rackspace_key_pair,
-            'region': rackspace_region,
-            'secret_access_key': rackspace_password,
-            'access_key_id': rackspace_username,
-            'security_groups': '',
-            'instance_name': 'jenkins_slave_centos7_ondemand',
+            'creation_args': {
+                'ami': 'CentOS 7 (PVHVM)',
+                'username': 'root',
+                'disk_name': '',
+                'disk_size': '48',
+                'instance_type': rackspace_flavor,
+                'key_pair': rackspace_key_pair,
+                'region': rackspace_region,
+                'secret_access_key': rackspace_password,
+                'access_key_id': rackspace_username,
+                'security_groups': '',
+                'instance_name': 'jenkins_slave_centos7_ondemand',
+                'tags': {'name': 'jenkins_slave_centos7_ondemand'}
+            },
             'description': 'jenkins_slave_centos7_ondemand',
             'public_key': rackspace_public_key,
             'auth_system': rackspace_auth_system,
             'tenant': rackspace_tenant_name,
             'auth_url': rackspace_auth_url,
             'key_filename': rackspace_key_filename,
-            'tags': {'name': 'jenkins_slave_centos7_ondemand'}
         },
         'ubuntu14.04': {
-            'ami': 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)',
-            'username': 'root',
-            'disk_name': '',
-            'disk_size': '48',
-            'instance_type': rackspace_flavor,
-            'key_pair': rackspace_key_pair,
-            'region': rackspace_region,
-            'secret_access_key': rackspace_password,
-            'access_key_id': rackspace_username,
-            'security_groups': '',
-            'instance_name': 'jenkins_slave_ubuntu14_ondemand',
+            'creation_args': {
+                'ami': 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)',
+                'username': 'root',
+                'disk_name': '',
+                'disk_size': '48',
+                'instance_type': rackspace_flavor,
+                'key_pair': rackspace_key_pair,
+                'region': rackspace_region,
+                'secret_access_key': rackspace_password,
+                'access_key_id': rackspace_username,
+                'security_groups': '',
+                'instance_name': 'jenkins_slave_ubuntu14_ondemand',
+                'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
+            },
             'description': 'jenkins_slave_ubuntu14_ondemand',
             'public_key': rackspace_public_key,
             'auth_system': rackspace_auth_system,
             'tenant': rackspace_tenant_name,
             'auth_url': rackspace_auth_url,
             'key_filename': rackspace_key_filename,
-            'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }
 
@@ -499,9 +511,17 @@ if 'gce' in list_of_clouds:
             # 'tags': {'name': 'jenkins_slave_centos7_ondemand'}
         # },
         'ubuntu14.04': {
-            'base_image_prefix': 'ubuntu-1404',
-            'base_image_project': 'ubuntu-os-cloud',
-            # 'username': 'root',
+            'creation_args': {
+                'base_image_prefix': 'ubuntu-1404',
+                'base_image_project': 'ubuntu-os-cloud',
+                'username': 'ci-slave-image-preper',
+                'project': gce_project,
+                'zone': gce_zone,
+                'machine_type': gce_machine_type,
+                'public_key': gce_public_key,
+            },
+            'key_filename': gce_private_key_filename,
+            'description': 'jenkins-slave-ubuntu14-ondemand',
             # 'disk_name': '',
             # 'disk_size': '48',
             # 'instance_type': rackspace_flavor,
@@ -511,12 +531,10 @@ if 'gce' in list_of_clouds:
             # 'access_key_id': rackspace_username,
             # 'security_groups': '',
             # 'instance_name': 'jenkins_slave_ubuntu14_ondemand',
-            # 'description': 'jenkins_slave_ubuntu14_ondemand',
             # 'public_key': rackspace_public_key,
             # 'auth_system': rackspace_auth_system,
             # 'tenant': rackspace_tenant_name,
             # 'auth_url': rackspace_auth_url,
-            # 'key_filename': rackspace_key_filename,
             # 'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }

@@ -79,7 +79,11 @@ def check_for_missing_environment_variables(cloud_type=None):
                                 'OS_REGION_NAME',
                                 'RACKSPACE_KEY_PAIR',
                                 'RACKSPACE_KEY_FILENAME',
-                                'OS_NO_CACHE']}
+                                'OS_NO_CACHE'],
+
+                  'gce': ['GCE_PRIVATE_KEY',
+                          'GCE_PUBLIC_KEY'],
+                  }
 
     for cloud in cloud_type:
         if not set(cloud_vars[cloud]).issubset(set(os.environ)):
@@ -152,6 +156,8 @@ def get_cloud_environment():
             clouds.append('ec2')
         if 'cloud=rackspace' in action:
             clouds.append('rackspace')
+        if 'cloud=gce' in action:
+            clouds.append('gce')
     return clouds
 
 

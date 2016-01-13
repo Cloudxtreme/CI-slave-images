@@ -21,68 +21,26 @@ from lib.bootstrap import (local_docker_images,
                            centos7_required_packages)
 
 
-def acceptance_tests(cloud,
-                     region,
-                     instance_id,
-                     access_key_id,
-                     secret_access_key,
-                     distribution,
-                     username):
+def acceptance_tests(distribution):
     """ proxy function that calls acceptance tests for speficic OS
 
-    :param string cloud: The cloud type to use 'ec2', 'rackspace'
-    :param string region: Cloud provider's region to deploy instance
-    :param string instance_id: The VM id as known by the cloud provider
-    :param string access_key_id: Typically the API access key
-    :param string secret_access_key: The secret matching the access key
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-    :param string username: ssh username to use
     """
 
     # run common tests for all platforms
-    acceptance_tests_common_tests_for_flocker(cloud,
-                                              region,
-                                              instance_id,
-                                              access_key_id,
-                                              secret_access_key,
-                                              distribution,
-                                              username)
+    acceptance_tests_common_tests_for_flocker(distribution)
 
     if 'ubuntu' in distribution.lower():
-        acceptance_tests_on_ubuntu14_img_for_flocker(cloud,
-                                                     region,
-                                                     instance_id,
-                                                     access_key_id,
-                                                     secret_access_key,
-                                                     distribution,
-                                                     username)
+        acceptance_tests_on_ubuntu14_img_for_flocker(distribution)
 
     if 'centos' in distribution.lower():
-        acceptance_tests_on_centos7_img_for_flocker(cloud,
-                                                    region,
-                                                    instance_id,
-                                                    access_key_id,
-                                                    secret_access_key,
-                                                    distribution,
-                                                    username)
+        acceptance_tests_on_centos7_img_for_flocker(distribution)
 
 
-def acceptance_tests_common_tests_for_flocker(cloud,
-                                              region,
-                                              instance,
-                                              access_key_id,
-                                              secret_access_key,
-                                              distribution,
-                                              username):
+def acceptance_tests_common_tests_for_flocker(distribution):
     """ Runs checks that are common to all platforms related to Flocker
 
-    :param string cloud: The cloud type to use 'ec2', 'rackspace'
-    :param string region: Cloud provider's region to deploy instance
-    :param string instance_id: The VM id as known by the cloud provider
-    :param string access_key_id: Typically the API access key
-    :param string secret_access_key: The secret matching the access key
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-    :param string username: ssh username to use
     """
 
     ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
@@ -176,23 +134,11 @@ def acceptance_tests_common_tests_for_flocker(cloud,
         assert process.is_up("docker")
 
 
-def acceptance_tests_on_centos7_img_for_flocker(cloud,
-                                                region,
-                                                instance,
-                                                access_key_id,
-                                                secret_access_key,
-                                                distribution,
-                                                username):
+def acceptance_tests_on_centos7_img_for_flocker(distribution):
     """ checks that the CentOS 7 image is suitable for running the Flocker
     acceptance tests
 
-    :param string cloud: The cloud type to use 'ec2', 'rackspace'
-    :param string region: Cloud provider's region to deploy instance
-    :param string instance_id: The VM id as known by the cloud provider
-    :param string access_key_id: Typically the API access key
-    :param string secret_access_key: The secret matching the access key
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-    :param string username: ssh username to use
     """
 
     ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
@@ -267,23 +213,11 @@ def acceptance_tests_on_centos7_img_for_flocker(cloud,
         assert sudo("systemctl is-enabled docker")
 
 
-def acceptance_tests_on_ubuntu14_img_for_flocker(cloud,
-                                                 region,
-                                                 instance,
-                                                 access_key_id,
-                                                 secret_access_key,
-                                                 distribution,
-                                                 username):
+def acceptance_tests_on_ubuntu14_img_for_flocker(distribution):
     """ checks that the Ubuntu 14 image is suitable for running the Flocker
     acceptance tests
 
-        :param string cloud: The cloud type to use 'ec2', 'rackspace'
-        :param string region: Cloud provider's region to deploy instance
-        :param string instance_id: The VM id as known by the cloud provider
-        :param string access_key_id: Typically the API access key
-        :param string secret_access_key: The secret matching the access key
         :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-        :param string username: ssh username to use
     """
 
     ec2_host = "%s@%s" % (env.user, load_state_from_disk()['ip_address'])
