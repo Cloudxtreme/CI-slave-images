@@ -87,18 +87,28 @@ def destroy():
     data = load_state_from_disk()
     cloud_type = data['cloud_type']
     distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    region = data['region']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
     env.user = data['username']
     env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    f_destroy(cloud=cloud_type,
-              region=region,
-              instance_id=instance_id,
-              access_key_id=access_key_id,
-              secret_access_key=secret_access_key)
+    if cloud_type == 'gce':
+        zone = data['zone']
+        project = data['project']
+        disk_name = data['instance_name']
+        f_destroy(cloud='gce',
+                  zone=zone,
+                  project=project,
+                  disk_name=disk_name)
+    else:
+        region = data['region']
+        access_key_id = C[cloud_type][distribution]['access_key_id']
+        secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        instance_id = data['id']
+
+        f_destroy(cloud=cloud_type,
+                  region=region,
+                  instance_id=instance_id,
+                  access_key_id=access_key_id,
+                  secret_access_key=secret_access_key)
 
 
 @task
@@ -489,27 +499,19 @@ if 'rackspace' in list_of_clouds:
 
 if 'gce' in list_of_clouds:
     C['gce'] = {
-        # 'centos7': {
-        #     "base_image": "centos-7"
-
-            # 'username': 'root',
-            # 'disk_name': '',
-            # 'disk_size': '48',
-            # 'instance_type': rackspace_flavor,
-            # 'key_pair': rackspace_key_pair,
-            # 'region': rackspace_region,
-            # 'secret_access_key': rackspace_password,
-            # 'access_key_id': rackspace_username,
-            # 'security_groups': '',
-            # 'instance_name': 'jenkins_slave_centos7_ondemand',
-            # 'description': 'jenkins_slave_centos7_ondemand',
-            # 'public_key': rackspace_public_key,
-            # 'auth_system': rackspace_auth_system,
-            # 'tenant': rackspace_tenant_name,
-            # 'auth_url': rackspace_auth_url,
-            # 'key_filename': rackspace_key_filename,
-            # 'tags': {'name': 'jenkins_slave_centos7_ondemand'}
-        # },
+        'centos7': {
+            'creation_args': {
+                'base_image_prefix': 'centos-7',
+                'base_image_project': 'centos-cloud',
+                'username': 'ci-slave-image-preper',
+                'project': gce_project,
+                'zone': gce_zone,
+                'machine_type': gce_machine_type,
+                'public_key': gce_public_key,
+            },
+            'key_filename': gce_private_key_filename,
+            'description': 'jenkins-slave-centos7-ondemand',
+        },
         'ubuntu14.04': {
             'creation_args': {
                 'base_image_prefix': 'ubuntu-1404',
@@ -522,20 +524,6 @@ if 'gce' in list_of_clouds:
             },
             'key_filename': gce_private_key_filename,
             'description': 'jenkins-slave-ubuntu14-ondemand',
-            # 'disk_name': '',
-            # 'disk_size': '48',
-            # 'instance_type': rackspace_flavor,
-            # 'key_pair': rackspace_key_pair,
-            # 'region': rackspace_region,
-            # 'secret_access_key': rackspace_password,
-            # 'access_key_id': rackspace_username,
-            # 'security_groups': '',
-            # 'instance_name': 'jenkins_slave_ubuntu14_ondemand',
-            # 'public_key': rackspace_public_key,
-            # 'auth_system': rackspace_auth_system,
-            # 'tenant': rackspace_tenant_name,
-            # 'auth_url': rackspace_auth_url,
-            # 'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
         }
     }
 

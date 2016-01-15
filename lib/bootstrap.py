@@ -120,13 +120,14 @@ def bootstrap(distribution):
 
         # some flocker acceptance tests fail when we don't have
         # a know_hosts file
+        sudo("mkdir -p /root/.ssh")
         sudo("touch /root/.ssh/known_hosts")
 
         # generate a id_rsa_flocker
         sudo("test -e  $HOME/.ssh/id_rsa_flocker || ssh-keygen -N '' "
              "-f $HOME/.ssh/id_rsa_flocker")
 
-        # and fix perms on /root/,ssh
+        # and fix perms on /root/.ssh
         sudo("chmod -R 0600 /root/.ssh")
 
         # TODO: this may not be needed, as packaging is done on a docker img
@@ -247,13 +248,14 @@ def bootstrap_jenkins_slave_centos7():
 
         # some flocker acceptance tests fail when we don't have
         # a know_hosts file
+        sudo("mkdir -p /root/.ssh")
         sudo("touch /root/.ssh/known_hosts")
 
         # generate a id_rsa_flocker
         sudo("test -e  $HOME/.ssh/id_rsa_flocker || ssh-keygen -N '' "
              "-f $HOME/.ssh/id_rsa_flocker")
 
-        # and fix perms on /root/,ssh
+        # and fix perms on /root/.ssh
         sudo("chmod -R 0600 /root/.ssh")
 
         # TODO: this may not be needed, as packaging is done on a docker img
@@ -343,13 +345,14 @@ def bootstrap_jenkins_slave_ubuntu14():
 
         # some flocker acceptance tests fail when we don't have
         # a know_hosts file
+        sudo("mkdir -p /root/.ssh")
         sudo("touch /root/.ssh/known_hosts")
 
         # generate a id_rsa_flocker
         sudo("test -e  $HOME/.ssh/id_rsa_flocker || ssh-keygen -N '' "
              "-f $HOME/.ssh/id_rsa_flocker")
 
-        # and fix perms on /root/,ssh
+        # and fix perms on /root/.ssh
         sudo("chmod -R 0600 /root/.ssh")
 
         apt_install_from_url('rpmlint',

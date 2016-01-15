@@ -50,11 +50,18 @@ For Rackspace:
 
 For Google Compute Engine:
 
-    * GCE_PUBLIC_KEY_FILENAME
+    * GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
 
-    * GCE_PRIVATE_KEY_FILENAME
+    * GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
 
-    * OS_USERNAME
+    * GCE_PROJECT (The GCE project to create the image in)
+
+    * GCE_ZONE (The GCE zone to use to make the image)
+
+    * GCE_MACHINE_TYPE (The machine type to use to make the image, defaults to
+                        n1-standard-2)
+
+
 
 
 create your virtualenv:
@@ -72,6 +79,8 @@ then execute as:
     fab it:cloud=ec2,distribution=centos7
     fab destroy
     fab it:cloud=rackspace,distribution=ubuntu14.04
+    fab destroy
+    fab it:cloud=gce,distribution=ubuntu14.04
 
     fab help
 
@@ -92,6 +101,9 @@ then execute as:
 
 The fab code should bootstrap an AWS/Rackspace instance,
 provision it and bake an image before deleting the original instance.
+
+On GCE it also bootstraps a GCE instance, but destroys the instance prior to
+constructing the image from the disk, as required by the GCE API.
 
 NOTE: if you get an:
 ```
@@ -120,7 +132,9 @@ Updating Jenkins to use the new images:
     fab it:cloud=ec2,distribution=centos7 \
         it:cloud=ec2,distribution=ubuntu14.04 \
         it:cloud=rackspace,distribution=centos7 \
-        it:cloud=rackspace,distribution=ubuntu14.04 | tee /tmp/fabbing.it.log
+        it:cloud=rackspace,distribution=ubuntu14.04 \
+        it:cloud=gce,distribution=centos7 \
+        it:cloud=gce,distribution=ubuntu14.04 | tee /tmp/fabbing.it.log
 
 
 2. Gather the IDs for the different images:
