@@ -17,7 +17,8 @@ from bookshelf.api_v1 import (status as f_status,
                               down as f_down,
                               destroy as f_destroy,
                               create_image as f_create_image,
-                              create_server as f_create_server)
+                              create_server as f_create_server,
+                              startup_gce_instance as f_startup_gce_instance)
 
 from bookshelf.api_v1 import (is_there_state,
                               load_state_from_disk,
@@ -334,6 +335,42 @@ def up(cloud=None, distribution=None):
         f_create_server(cloud=cloud,
                         **C[cloud][distribution]['creation_args'])
 
+
+@task
+def startup_gce_jenkins_slave(cloud, slave_image):
+    """
+    Background: At this time, jclouds and the Jenkins jclouds plugin
+    don't work correctly on GCE.  Until this is fixed we're going to
+    have static slaves running our GCE builds.
+
+    This function will spin up a slave instance in GCE running the
+    specified image (that should have already been provisioned via
+    ``fab it``.
+    """
+
+    if 'ubuntu' in slave_image:
+        distribution = 'ubuntu14.04'
+    elif 'centos' in slave_image:
+        distribution = 'centos7'
+    else:
+        raise RuntimeError("could not parse distribution from image"
+                           "{}".format(slave_image))
+
+    print "hello"
+    creation_args = C[cloud][distribution]['creation_args']
+    jenkins_public_key = (segredos()['env']['default']['ssh']['ssh_keys']
+                          [1]['contents'])
+    # gce gets the username from the public key, lets make the username
+    # jenkins as that's what jenkins expects by default
+    jenkins_public_key = jenkins_public_key.replace('jenkins-master',
+                                                    'jenkins')
+    import pdb; pdb.set_trace()
+    f_startup_gce_instance(creation_args['project'],
+                           creation_args['zone'],
+                           creation_args['username'],
+                           creation_args['machine_type'],
+                           creation_args['slave_image'],
+                           jenkins_public_key)
 
 """
     ___main___
