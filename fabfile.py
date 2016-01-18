@@ -350,26 +350,22 @@ def startup_gce_jenkins_slave(cloud, slave_image):
 
     if 'ubuntu' in slave_image:
         distribution = 'ubuntu14.04'
+        #username = 'ubuntu'
     elif 'centos' in slave_image:
         distribution = 'centos7'
+        #username = 'centos7'
     else:
         raise RuntimeError("could not parse distribution from image"
                            "{}".format(slave_image))
-
-    print "hello"
     creation_args = C[cloud][distribution]['creation_args']
     jenkins_public_key = (segredos()['env']['default']['ssh']['ssh_keys']
-                          [1]['contents'])
-    # gce gets the username from the public key, lets make the username
-    # jenkins as that's what jenkins expects by default
-    jenkins_public_key = jenkins_public_key.replace('jenkins-master',
-                                                    'jenkins')
-    import pdb; pdb.set_trace()
+                          [1]['contents'][0])
+    username = 'jenkins'
     f_startup_gce_instance(creation_args['project'],
                            creation_args['zone'],
-                           creation_args['username'],
+                           username,
                            creation_args['machine_type'],
-                           creation_args['slave_image'],
+                           slave_image,
                            jenkins_public_key)
 
 """
