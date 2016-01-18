@@ -10,6 +10,7 @@
 import os
 import sys
 from datetime import datetime
+import uuid
 from fabric.api import task, env
 
 from bookshelf.api_v1 import (status as f_status,
@@ -197,7 +198,15 @@ def help():
             # OS_AUTH_URL (optional)
             # OS_REGION_NAME (optional)
 
-            metadata state is stored locally in state.json.
+            For Google Compute Engine (GCE):
+            # GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
+            # GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
+            # GCE_PROJECT (The GCE project to create the image in)
+            # GCE_ZONE (The GCE zone to use to make the image)
+            # GCE_MACHINE_TYPE (The machine type to use to make the image,
+              defaults to n1-standard-2)
+
+            Metadata state is stored locally in data.json.
           """)
 
 
@@ -350,10 +359,8 @@ def startup_gce_jenkins_slave(cloud, slave_image):
 
     if 'ubuntu' in slave_image:
         distribution = 'ubuntu14.04'
-        #username = 'ubuntu'
     elif 'centos' in slave_image:
         distribution = 'centos7'
-        #username = 'centos7'
     else:
         raise RuntimeError("could not parse distribution from image"
                            "{}".format(slave_image))
@@ -361,7 +368,9 @@ def startup_gce_jenkins_slave(cloud, slave_image):
     jenkins_public_key = (segredos()['env']['default']['ssh']['ssh_keys']
                           [1]['contents'][0])
     username = 'jenkins'
-    f_startup_gce_instance(creation_args['project'],
+    instance_name = u"jenkins-slave-image-" + unicode(uuid.uuid4())
+    f_startup_gce_instance(instance_name,
+                           creation_args['project'],
                            creation_args['zone'],
                            username,
                            creation_args['machine_type'],
