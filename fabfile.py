@@ -117,20 +117,27 @@ def destroy():
 def down(cloud=None):
     """ halt an existing instance """
     data = load_state_from_disk()
-    region = data['region']
     cloud_type = data['cloud_type']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
-    env.key_filename = C[cloud_type][distribution]['key_filename']
+    if cloud_type == 'gce':
+        zone = data['zone']
+        project = data['project']
+        instance_name = data['instance_name']
+        f_down(cloud=cloud_type, zone=zone,
+               project=project, instance_name=instance_name)
+    else:
+        region = data['region']
+        distribution = data['distribution'] + data['os_release']['VERSION_ID']
+        access_key_id = C[cloud_type][distribution]['access_key_id']
+        secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        instance_id = data['id']
+        env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    setup_cloud_env(cloud_type)
-    f_down(cloud=cloud_type,
-           instance_id=instance_id,
-           region=region,
-           access_key_id=access_key_id,
-           secret_access_key=secret_access_key)
+        setup_cloud_env(cloud_type)
+        f_down(cloud=cloud_type,
+               instance_id=instance_id,
+               region=region,
+               access_key_id=access_key_id,
+               secret_access_key=secret_access_key)
 
 
 @task(default=True)
@@ -259,20 +266,30 @@ def status():
     cloud_type = data['cloud_type']
     username = data['username']
     distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    region = data['region']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
     env.user = data['username']
     env.key_filename = C[cloud_type][distribution]['key_filename']
+    if cloud_type == 'gce':
+        zone = data['zone']
+        project = data['project']
+        instance_name = data['instance_name']
+        f_status(cloud=cloud_type,
+                 zone=zone,
+                 project=project,
+                 instance_name=instance_name,
+                 data=data)
+    else:
+        region = data['region']
+        access_key_id = C[cloud_type][distribution]['access_key_id']
+        secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        instance_id = data['id']
 
-    setup_cloud_env(cloud_type)
-    f_status(cloud=cloud_type,
-             region=region,
-             instance_id=instance_id,
-             access_key_id=access_key_id,
-             secret_access_key=secret_access_key,
-             username=username)
+        setup_cloud_env(cloud_type)
+        f_status(cloud=cloud_type,
+                 region=region,
+                 instance_id=instance_id,
+                 access_key_id=access_key_id,
+                 secret_access_key=secret_access_key,
+                 username=username)
 
 
 @task
@@ -319,22 +336,31 @@ def up(cloud=None, distribution=None):
     if is_there_state():
         data = load_state_from_disk()
         cloud_type = data['cloud_type']
-        username = data['username']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_id = data['id']
-        env.user = data['username']
-        env.key_filename = C[cloud_type][distribution]['key_filename']
 
-        setup_cloud_env(cloud_type)
-        f_up(cloud=cloud_type,
-             region=region,
-             instance_id=instance_id,
-             access_key_id=access_key_id,
-             secret_access_key=secret_access_key,
-             username=username)
+        if cloud_type == 'gce':
+
+            f_up(cloud_type, disk_name=data['instance_name'],
+                 instance_name=data['instance_name'],
+                 **C[cloud][distribution]['creation_args'])
+        else:
+
+            username = data['username']
+            distribution = data['distribution'] + data['os_release']['VERSION_ID']
+            region = data['region']
+            access_key_id = C[cloud_type][distribution]['access_key_id']
+            secret_access_key = C[cloud_type][distribution]['secret_access_key']
+            instance_id = data['id']
+            env.user = data['username']
+            env.key_filename = C[cloud_type][distribution]['key_filename']
+
+            setup_cloud_env(cloud_type)
+            f_up(cloud=cloud_type,
+                 region=region,
+                 instance_id=instance_id,
+                 access_key_id=access_key_id,
+                 secret_access_key=secret_access_key,
+                 username=username)
+
     else:
         env.user = C[cloud][distribution]['creation_args']['username']
         env.key_filename = C[cloud][distribution]['key_filename']
