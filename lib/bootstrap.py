@@ -43,7 +43,6 @@ from lib.mycookbooks import (symlink_sh_to_bash,
                              compiles_zfs_modules,
                              install_nginx)
 
-
 def bootstrap_jenkins_slave_centos7():
     # ec2 hosts get their ip addresses using dhcp, we need to know the new
     # ip address of our box before we continue our provisioning tasks.
@@ -139,8 +138,8 @@ def bootstrap_jenkins_slave_centos7():
         git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
         with cd('flocker'):
             run('pip install --quiet --user .')
-            run('pip install --quiet --user '
-                ' --process-dependency-links ".[dev]"')
+            run('pip install --quiet '
+                '--user --process-dependency-links ".[dev]"')
             run('pip install --quiet --user python-subunit junitxml')
 
         # nginx is used during the acceptance tests, the VM built by
@@ -239,8 +238,8 @@ def bootstrap_jenkins_slave_ubuntu14():
         git_clone('https://github.com/ClusterHQ/flocker.git', 'flocker')
         with cd('flocker'):
             run('pip install --quiet --user .')
-            run('pip install --quiet '
-                '--user --process-dependency-links ".[dev]"')
+            run('pip install --quiet --user'
+                ' --process-dependency-links ".[dev]"')
             run('pip install --quiet --user python-subunit junitxml')
 
         # nginx is used during the acceptance tests, the VM built by
