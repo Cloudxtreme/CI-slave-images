@@ -72,8 +72,8 @@ def create_image():
     else:
         kwargs = dict(
             region=data['region'],
-            access_key_id=C[cloud_type][distribution]['access_key_id'],
-            secret_access_key=C[cloud_type][distribution]['secret_access_key'],
+            access_key_id=C[cloud_type][distribution]['creation_args']['access_key_id'],
+            secret_access_key=C[cloud_type][distribution]['creation_args']['secret_access_key'],
             instance_id=data['id'],
             name=description + "_" + date,
         )
@@ -102,8 +102,8 @@ def destroy():
                   disk_name=disk_name)
     else:
         region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        access_key_id = C[cloud_type][distribution]['creation_args']['access_key_id']
+        secret_access_key = C[cloud_type][distribution]['creation_args']['secret_access_key']
         instance_id = data['id']
 
         f_destroy(cloud=cloud_type,
@@ -127,8 +127,8 @@ def down(cloud=None):
     else:
         region = data['region']
         distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        access_key_id = C[cloud_type][distribution]['creation_args']['access_key_id']
+        secret_access_key = C[cloud_type][distribution]['creation_args']['secret_access_key']
         instance_id = data['id']
         env.key_filename = C[cloud_type][distribution]['key_filename']
 
@@ -279,8 +279,8 @@ def status():
                  data=data)
     else:
         region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
+        access_key_id = C[cloud_type][distribution]['creation_args']['access_key_id']
+        secret_access_key = C[cloud_type][distribution]['creation_args']['secret_access_key']
         instance_id = data['id']
 
         setup_cloud_env(cloud_type)
@@ -347,8 +347,8 @@ def up(cloud=None, distribution=None):
             username = data['username']
             distribution = data['distribution'] + data['os_release']['VERSION_ID']
             region = data['region']
-            access_key_id = C[cloud_type][distribution]['access_key_id']
-            secret_access_key = C[cloud_type][distribution]['secret_access_key']
+            access_key_id = C[cloud_type][distribution]['creation_args']['access_key_id']
+            secret_access_key = C[cloud_type][distribution]['creation_args']['secret_access_key']
             instance_id = data['id']
             env.user = data['username']
             env.key_filename = C[cloud_type][distribution]['key_filename']
