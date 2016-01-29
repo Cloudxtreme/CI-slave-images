@@ -1,9 +1,14 @@
+# vim: ai ts=2 sts=2 et sw=2 ft=yaml fdm=indent et foldlevel=0
+#
+# config.yaml
+
+# Common options to all regions
 templates:
   ec2_common: &ec2_common
     key_pair: <%= ENV['AWS_KEY_PAIR'] %>
     key_filename: <%= ENV['AWS_KEY_FILENAME'] %>
     access_key_id: <%= ENV['AWS_ACCESS_KEY_ID'] %>
-    secret_access_key: <%= ENV['AWS_SECRET_KEY'] %>
+    secret_access_key: <%= ENV['AWS_SECRET_ACCESS_KEY'] %>
     disk_name: '/dev/sda1'
     disk_size: '48'
     instance_type: 't2.medium'
@@ -50,11 +55,11 @@ templates:
     base_image_project: 'ubuntu-os-cloud'
     ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
 
-
+# list of cloud providers
 clouds:
   ec2:
     regions:
-      us-west01:
+      us-east-1:
         distribution:
           centos7:
             <<: *ec2_common
@@ -63,7 +68,77 @@ clouds:
           ubuntu1404:
             <<: *ec2_common
             <<: *ubuntu1404_common
-            ami: 'something'
+            ami: 'ami-ffe3c695'
+      eu-central-1:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-e68f82fb'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-86564fea'
+      ap-southeast-1:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-d38dc6e9'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-7ac30f19'
+      ap-northeast-1:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-b80b6db8'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-0419256a'
+      ap-southeast-2:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-2a7b6b78'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-520b2e31'
+      ap-northeast-2:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-dd9d53b3'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-0419256a'
+      sa-east-1:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-fd0197e0'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-a0b637cc'
+      us-west-1:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-61bbf104'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-34126654'
       us-west-2:
         distribution:
           centos7:

@@ -8,7 +8,6 @@
 
 
 import os
-import unicode
 from datetime import datetime
 import uuid
 from fabric.api import task, env

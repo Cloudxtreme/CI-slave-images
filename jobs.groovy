@@ -1,8 +1,11 @@
 // vim: ai ts=2 sts=2 et sw=2 ft=groovy fdm=indent et foldlevel=0
 // jobs.groovy
 
+
 def project = 'ClusterHQ/CI-slave-images'
 def git_url = 'https://github.com/ClusterHQ/CI-slave-images.git'
+
+// build functions and steps
 
 def hashbang = """
   #!/bin/bash -l
@@ -53,83 +56,17 @@ def clone_segredos = """
 
 
 def run_fabric = '''
-  fab it:cloud=$CLOUD,distribution=$DISTRIBUTION
+  fab cloud:$CLOUD distribution:$DISTRIBUTION region:$REGION up
+  fab bootstrap
+  fab tests
+  fab create_image
+  fab destroy
   '''.stripIndent()
 
-
-def on_clouds = [
-  ec2:[regions: ['us-west-1', 'us-west-2'],
-       distributions: [ 'centos7', 'ubuntu14.04'] ],
-
-  rackspace:[regions: ['IAD', 'DFW'],
-             distributions: [ 'centos7', 'ubuntu14.04'] ],
-
-  gce: [regions: [],
-        distributions: [ 'centos7', 'ubuntu14.04'] ]
-]
-
-def on_nodes_with_labels = 'aws-centos-7-T2Smal'
-
-def with_steps = hashbang +
-                 add_shell_functions +
-                 setup_venv +
-                 pip_install +
-                 clone_segredos +
-                 run_fabric
-
-
-def timeout = 90
-
-def on_label = 'aws-centos-7-T2Small'
-
-def with_views = [
-  on_aws:[description: 'All AWS Jobs',
-          regex: '(.*_(?i)aws_.*.*)' ],
-
-  on_rackspace:[description: 'All Rackspace Jobs',
-                regex: '(.*_(?i)rackspace_.*.*)' ],
-
-  on_centos_7:[description: 'All Centos Jobs',
-               regex: '(.*_(?i)Centos_.*.*)' ],
-
-  on_ubuntu_14_04_LTS:[description: 'All Ubuntu Trusty (14.04) Jobs',
-                       regex: '(.*_(?i)trusty_.*.*)' ]
-]
-
-def jobs_parameters = [
-  AWS_ACCESS_KEY_ID:[
-  TRIGGERED_BRANCH:[
-    default_value:'${RECONFIGURE_BRANCH}', description:''],
-
-    default_value:'${AWS_ACCESS_KEY_ID}', description:''],
-  AWS_SECRET_ACCESS_KEY: [
-    default_value:'${AWS_SECRET_ACCESS_KEY}', description:''],
-  AWS_KEY_FILENAME:[
-    default_value:'${AWS_KEY_FILENAME}', description:''],
-  AWS_KEY_PAIR:[
-    default_value:'${AWS_KEY_PAIR}', description:''],
-
-  OS_USERNAME:[
-    default_value:'${OS_USERNAME}', description:''],
-  OS_PASSWORD:[
-    default_value:'${OS_PASSWORD}', description:''],
-  OS_TENANT_NAME:[
-    default_value:'${OS_TENANT_NAME}', description:''],
-  RACKSPACE_KEY_PAIR:[
-    default_value:'${RACKSPACE_KEY_PAIR}', description:''],
-  RACKSPACE_KEY_FILENAME:[
-    default_value:'${RACKSPACE_KEY_FILENAME}', description:''],
-  OS_AUTH_SYSTEM:[
-    default_value:'${OS_AUTH_SYSTEM}', description:''],
-  OS_AUTH_URL:[
-    default_value:'${OS_AUTH_URL}', description:''],
-  OS_NO_CACHE:[
-    default_value:'${OS_NO_CACHE}', description:'']
-]
-
-
-
-
+/*
+list of clouds, regions, linux distributions for which jenkins jobs are
+to be created.
+*/
 
 def escape_name(name) {
     /*
@@ -153,6 +90,101 @@ def full_job_name(dashProject, dashBranchName, job_name) {
     */
     return folder_name(dashProject, dashBranchName) + "/${job_name}"
 }
+def on_clouds = [
+  ec2:[regions: ['us-east-1',
+                 'eu-central-1',
+                 'ap-southeast-1',
+                 'ap-northeast-1',
+                 'ap-southeast-2',
+                 'ap-northeast-2',
+                 'sa-east-1',
+                 'us-west-1',
+                 'us-west-2'],
+       distributions: [ 'centos7', 'ubuntu1404'] ],
+
+  rackspace:[regions: ['IAD',
+                       'DFW',
+                       'HGK'],
+             distributions: [ 'centos7', 'ubuntu1404'] ],
+
+  gce: [regions: ['us-east1-b'],
+        distributions: [ 'centos7',
+                         'ubuntu1404'] ]
+]
+
+// job build steps
+def with_steps = hashbang +
+                 add_shell_functions +
+                 setup_venv +
+                 pip_install +
+                 clone_segredos +
+                 run_fabric
+
+// job timeout
+def timeout = 90
+
+// Jenkins Slave type
+def on_label = 'aws-centos-7-T2Small'
+
+
+// list of tabs to generate on each feature branch folder
+def with_views = [
+  on_aws:[description: 'All AWS Jobs',
+          regex: '(.*_(?i)aws_.*.*)' ],
+
+  on_rackspace:[description: 'All Rackspace Jobs',
+                regex: '(.*_(?i)rackspace_.*.*)' ],
+
+  on_centos_7:[description: 'All Centos Jobs',
+               regex: '(.*_(?i)Centos_.*.*)' ],
+
+  on_ubuntu_14_04_LTS:[description: 'All Ubuntu Trusty (14.04) Jobs',
+                       regex: '(.*_(?i)trusty_.*.*)' ]
+]
+
+// parameters that are common to every job
+def jobs_common_parameters = [
+  TRIGGERED_BRANCH:[
+    default_value:'${RECONFIGURE_BRANCH}', description:''],
+
+  AWS_ACCESS_KEY_ID:[
+    default_value:'${AWS_ACCESS_KEY_ID}', description:''],
+  AWS_SECRET_ACCESS_KEY: [
+    default_value:'${AWS_SECRET_ACCESS_KEY}', description:''],
+  AWS_KEY_FILENAME:[
+    default_value:'${AWS_KEY_FILENAME}', description:''],
+  AWS_KEY_PAIR:[
+    default_value:'${AWS_KEY_PAIR}', description:''],
+
+  OS_USERNAME:[
+    default_value:'${OS_USERNAME}', description:''],
+  OS_PASSWORD:[
+    default_value:'${OS_PASSWORD}', description:''],
+  OS_TENANT_NAME:[
+    default_value:'${OS_TENANT_NAME}', description:''],
+  RACKSPACE_KEY_PAIR:[
+    default_value:'${RACKSPACE_KEY_PAIR}', description:''],
+  RACKSPACE_KEY_FILENAME:[
+    default_value:'${RACKSPACE_KEY_FILENAME}', description:''],
+  RACKSPACE_PUBLIC_KEY_FILENAME: [
+    default_value:'${RACKSPACE_PUBLIC_KEY_FILENAME}', description:''],
+  OS_AUTH_SYSTEM:[
+    default_value:'${OS_AUTH_SYSTEM}', description:''],
+  OS_AUTH_URL:[
+    default_value:'${OS_AUTH_URL}', description:''],
+  OS_NO_CACHE:[
+    default_value:'${OS_NO_CACHE}', description:''],
+
+  GCE_PROJECT: [
+    default_value:'${GCE_PROJECT}', description:''],
+  GCE_ZONE: [
+    default_value:'${GCE_ZONE}', description:''],
+  GCE_PUBLIC_KEY: [
+    default_value:'${GCE_PUBLIC_KEY}', description:''],
+  GCE_PRIVATE_KEY: [
+    default_value:'${GCE_PRIVATE_KEY}', description:''],
+]
+
 
 
 dashBranchName = escape_name("${RECONFIGURE_BRANCH}")
@@ -161,6 +193,8 @@ dashProject = escape_name(project)
 
 folder(dashProject + '/' + dashBranchName )
 
+
+// generate all the views
 for (view in with_views.keySet()) {
      values = with_views.get(view)
 
@@ -185,6 +219,7 @@ for (view in with_views.keySet()) {
   }
 }
 
+// generate all the child jobs for our multijob
 for (cloud in on_clouds.keySet()) {
   values = on_clouds.get(cloud)
   println(values)
@@ -199,7 +234,7 @@ for (cloud in on_clouds.keySet()) {
       job(job_name) {
         parameters {
 
-          jobs_parameters.each { k, v ->
+          jobs_common_parameters.each { k, v ->
             stringParam(k, v.default_value)
           }
 
@@ -207,8 +242,7 @@ for (cloud in on_clouds.keySet()) {
           stringParam("DISTRIBUTION", distribution)
           stringParam("AWS_REGION", region)
           stringParam("OS_REGION_NAME", region)
-
-
+          stringParam("REGION", region)
         }
 
         scm {
@@ -233,7 +267,6 @@ for (cloud in on_clouds.keySet()) {
           }
         }
 
-
         wrappers {
             timestamps()
             colorizeOutput()
@@ -249,6 +282,7 @@ for (cloud in on_clouds.keySet()) {
   }
 }
 
+// generate our multijob
 job_name = dashProject + '/' + dashBranchName + '/' + '__main_multijob'
 
 multiJob(job_name) {
@@ -256,6 +290,7 @@ multiJob(job_name) {
   parameters {
     stringParam("TRIGGERED_BRANCH", "${RECONFIGURE_BRANCH}",
                   "Branch that triggered this job" )
+
     stringParam("AWS_ACCESS_KEY_ID", 'FILL_ME_IN')
     stringParam("AWS_SECRET_ACCESS_KEY", 'FILL_ME_IN')
     stringParam("AWS_KEY_FILENAME", '~/.ssh/id_rsa')
@@ -267,10 +302,13 @@ multiJob(job_name) {
     stringParam("OS_NO_CACHE", '1')
     stringParam("RACKSPACE_KEY_PAIR", 'jenkins-slave')
     stringParam("RACKSPACE_KEY_FILENAME", '~/.ssh/id_rsa')
+    stringParam("RACKSPACE_PUBLIC_KEY_FILENAME", '~/.ssh/id_rsa.pub')
     stringParam("OS_AUTH_SYSTEM", 'rackspace')
     stringParam("OS_AUTH_URL", 'https://identity.api.rackspacecloud.com/v2.0/')
 
-
+    stringParam("GCE_PROJECT", "FILL_ME_IN")
+    stringParam("GCE_PUBLIC_KEY", "FILL_ME_IN")
+    stringParam("GCE_PRIVATE_KEY", "FILL_ME_IN")
   }
 
   wrappers {
@@ -297,7 +335,7 @@ multiJob(job_name) {
               killPhaseCondition("NEVER")
               currentJobParameters(true)
               parameters {
-                jobs_parameters.each { k, v ->
+                jobs_common_parameters.each { k, v ->
                   predefinedProp(k, v.default_value)
                 }
 
