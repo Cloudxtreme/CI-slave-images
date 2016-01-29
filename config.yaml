@@ -1,0 +1,142 @@
+templates:
+  ec2_common: &ec2_common
+    key_pair: <%= ENV['AWS_KEY_PAIR'] %>
+    key_filename: <%= ENV['AWS_KEY_FILENAME'] %>
+    access_key_id: <%= ENV['AWS_ACCESS_KEY_ID'] %>
+    secret_access_key: <%= ENV['AWS_SECRET_KEY'] %>
+    disk_name: '/dev/sda1'
+    disk_size: '48'
+    instance_type: 't2.medium'
+    security_groups: ['ssh']
+
+  rackspace_common: &rackspace_common
+    username: 'root'
+    disk_name: ''
+    disk_size: '48'
+    instance_type: '1GB Standard Instance'
+    key_pair: <%= ENV['RACKSPACE_KEY_PAIR'] %>
+    key_filename: <%= ENV['RACKSPACE_KEY_FILENAME'] %>
+    public_key_filename: <%= ENV['RACKSPACE_PUBLIC_KEY_FILENAME'] %>
+    access_key_id: <%= ENV['OS_USERNAME'] %>
+    secret_access_key: <%= ENV['OS_PASSWORD'] %>
+    auth_system: <%= ENV['OS_AUTH_SYSTEM'] %>
+    auth_auth_url: <%= ENV['OS_AUTH_URL'] %>
+    tenant: <%= ENV['OS_TENANT_NAME'] %>
+    security_groups: ''
+
+  gce_common: &gce_common
+    project: <%= ENV['GCE_PROJECT'] %>
+    zone: <%= ENV['GCE_ZONE'] %>
+    public_key: <%= ENV['GCE_PUBLIC_KEY'] %>
+    private_key: <%= ENV['GCE_PRIVATE_KEY'] %>
+    key_filename: <%= ENV['GCE_PRIVATE_KEY'] %>
+    machine_type: 'n1-standard-2'
+
+  centos7_common: &centos7_common
+    description: 'jenkins_slave_centos7_ondemand'
+    instance_name: 'jenkins_slave_centos7_ondemand'
+    tags: {'name': 'jenkins_slave_centos7_ondemand'}
+    username: 'centos'
+    base_image_prefix: 'centos-7'
+    base_image_project: 'centos-cloud'
+
+  ubuntu1404_common: &ubuntu1404_common
+    ami: 'something'
+    description: 'jenkins_slave_ubuntu1404_ondemand'
+    instance_name: 'jenkins_slave_ubuntu1404_ondemand'
+    tags: {'name': 'jenkins_slave_ubuntu1404_ondemand'}
+    username: 'ubuntu'
+    base_image_prefix: 'ubuntu-1404'
+    base_image_project: 'ubuntu-os-cloud'
+    ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
+
+
+clouds:
+  ec2:
+    regions:
+      us-west01:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-61bbf104'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'something'
+      us-west-2:
+        distribution:
+          centos7:
+            <<: *ec2_common
+            <<: *centos7_common
+            ami: 'ami-d440a6e7'
+          ubuntu1404:
+            <<: *ec2_common
+            <<: *ubuntu1404_common
+            ami: 'ami-22b9a343'
+
+  rackspace:
+    regions:
+      HGK:
+        distribution:
+          centos7:
+            <<: *rackspace_common
+            <<: *centos7_common
+            ami: 'CentOS 7 (PVHVM)'
+            username: 'root'
+          ubuntu1404:
+            <<: *rackspace_common
+            <<: *ubuntu1404_common
+            ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
+            username: 'root'
+      IAD:
+        distribution:
+          centos7:
+            <<: *rackspace_common
+            <<: *centos7_common
+            ami: 'CentOS 7 (PVHVM)'
+            username: 'root'
+          ubuntu1404:
+            <<: *rackspace_common
+            <<: *ubuntu1404_common
+            ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
+            username: 'root'
+      DFW:
+        distribution:
+          centos7:
+            <<: *rackspace_common
+            <<: *centos7_common
+            ami: 'CentOS 7 (PVHVM)'
+            username: 'root'
+          ubuntu1404:
+            <<: *rackspace_common
+            <<: *ubuntu1404_common
+            ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
+            username: 'root'
+      SYD:
+        distribution:
+          centos7:
+            <<: *rackspace_common
+            <<: *centos7_common
+            ami: 'CentOS 7 (PVHVM)'
+            username: 'root'
+          ubuntu1404:
+            <<: *rackspace_common
+            <<: *ubuntu1404_common
+            ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
+            username: 'root'
+
+  gce:
+    regions:
+      us-east1-b:
+        distribution:
+          centos7:
+            <<: *gce_common
+            <<: *centos7_common
+            instance_name: 'jenkins-slave-centos7-ondemand'
+            username: 'ci-slave-image-preper'
+          ubuntu1404:
+            <<: *gce_common
+            <<: *ubuntu1404_common
+            username: 'ci-slave-image-preper'
+            instance_name: 'jenkins_slave_ubuntu1404_ondemand'
