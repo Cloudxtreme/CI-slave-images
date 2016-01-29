@@ -104,21 +104,11 @@ clouds:
           centos7:
             <<: *ec2_common
             <<: *centos7_common
-            ami: 'ami-2a7b6b78'
+            ami: 'ami-d38dc6e9'
           ubuntu1404:
             <<: *ec2_common
             <<: *ubuntu1404_common
             ami: 'ami-520b2e31'
-      ap-northeast-2:
-        distribution:
-          centos7:
-            <<: *ec2_common
-            <<: *centos7_common
-            ami: 'ami-dd9d53b3'
-          ubuntu1404:
-            <<: *ec2_common
-            <<: *ubuntu1404_common
-            ami: 'ami-0419256a'
       sa-east-1:
         distribution:
           centos7:

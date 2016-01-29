@@ -96,7 +96,6 @@ def on_clouds = [
                  'ap-southeast-1',
                  'ap-northeast-1',
                  'ap-southeast-2',
-                 'ap-northeast-2',
                  'sa-east-1',
                  'us-west-1',
                  'us-west-2'],
@@ -136,10 +135,10 @@ def with_views = [
                 regex: '(.*_(?i)rackspace_.*.*)' ],
 
   on_centos_7:[description: 'All Centos Jobs',
-               regex: '(.*_(?i)Centos_.*.*)' ],
+               regex: '(.*_(?i)Centos7)' ],
 
   on_ubuntu_14_04_LTS:[description: 'All Ubuntu Trusty (14.04) Jobs',
-                       regex: '(.*_(?i)trusty_.*.*)' ]
+                       regex: '(.*_(?i)ubuntu1404)' ]
 ]
 
 // parameters that are common to every job
