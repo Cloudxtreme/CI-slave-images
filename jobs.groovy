@@ -102,7 +102,7 @@ def on_clouds = [
 
   rackspace:[regions: ['IAD',
                        'DFW',
-                       'HGK'],
+                       'HKG'],
              distributions: [ 'centos7', 'ubuntu1404'] ],
 
   gce: [regions: ['us-east1-b'],
