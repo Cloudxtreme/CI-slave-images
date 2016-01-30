@@ -84,7 +84,7 @@ clouds:
           centos7:
             <<: *ec2_common
             <<: *centos7_common
-            ami: 'ami-d38dc6e9'
+            ami: 'ami-2a7b6b78'
           ubuntu1404:
             <<: *ec2_common
             <<: *ubuntu1404_common
@@ -124,7 +124,7 @@ clouds:
           centos7:
             <<: *ec2_common
             <<: *centos7_common
-            ami: 'ami-61bbf104'
+            ami: 'ami-f77fbeb3'
           ubuntu1404:
             <<: *ec2_common
             <<: *ubuntu1404_common
@@ -142,7 +142,7 @@ clouds:
 
   rackspace:
     regions:
-      HGK:
+      HKG:
         distribution:
           centos7:
             <<: *rackspace_common

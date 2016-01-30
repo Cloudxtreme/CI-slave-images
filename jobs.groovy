@@ -91,8 +91,7 @@ def full_job_name(dashProject, dashBranchName, job_name) {
     return folder_name(dashProject, dashBranchName) + "/${job_name}"
 }
 def on_clouds = [
-  ec2:[regions: ['us-east-1',
-                 'eu-central-1',
+  ec2:[regions: ['eu-central-1',
                  'ap-southeast-1',
                  'ap-northeast-1',
                  'ap-southeast-2',
