@@ -308,6 +308,11 @@ multiJob(job_name) {
     stringParam("GCE_PROJECT", "FILL_ME_IN")
     stringParam("GCE_PUBLIC_KEY", "FILL_ME_IN")
     stringParam("GCE_PRIVATE_KEY", "FILL_ME_IN")
+
+
+    parameters {
+      credentialsParam('DEPLOY_KEY')
+    }
   }
 
   wrappers {
