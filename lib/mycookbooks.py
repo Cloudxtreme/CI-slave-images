@@ -208,12 +208,12 @@ def install_nginx():
 
 
 def local_docker_images():
-        return ['busybox',
-                'openshift/busybox-http-app',
-                'python:2.7-slim',
-                'clusterhqci/fpm-ubuntu-trusty',
-                'clusterhqci/fpm-ubuntu-vivid',
-                'clusterhqci/fpm-centos-7']
+    return ['busybox',
+            'openshift/busybox-http-app',
+            'python:2.7-slim',
+            'clusterhqci/fpm-ubuntu-trusty',
+            'clusterhqci/fpm-ubuntu-vivid',
+            'clusterhqci/fpm-centos-7']
 
 
 def segredos():
@@ -319,6 +319,7 @@ def load_config():
 
 
 def load_state_from_disk():
+    """ loads state.json file into fabric.env """
     if os.path.isfile('.state.json'):
         env.state = True
         with open('.state.json') as data_file:
@@ -326,7 +327,7 @@ def load_state_from_disk():
 
 
 def create_new_vm():
-    # no state file around, lets create a new VM
+    """ creates a new VM when one doesn't exist """
 
     cloud, region, distro, k = cloud_region_distro_config()
 

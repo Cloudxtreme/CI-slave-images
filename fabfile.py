@@ -9,14 +9,12 @@
 
 import os
 from datetime import datetime
-import uuid
 from fabric.api import task, env
 from pprint import PrettyPrinter
 
 from bookshelf.api_v1 import (up as f_up,
                               down as f_down,
-                              destroy as f_destroy,
-                              startup_gce_instance as f_startup_gce_instance)
+                              destroy as f_destroy)
 
 
 from bookshelf.api_v2.ec2 import (
@@ -35,12 +33,7 @@ from bookshelf.api_v2.logging_helpers import log_green, log_red
 
 from bookshelf.api_v1 import (ssh_session, create_gce_image)
 
-from lib.mycookbooks import (ec2,
-                             rackspace,
-                             gce,
-                             get_cloud_environment,
-                             segredos,
-                             load_config,
+from lib.mycookbooks import (load_config,
                              cloud_region_distro_config,
                              connect_to_cloud_provider,
                              create_new_vm)
@@ -56,75 +49,75 @@ from tests.acceptance import acceptance_tests
 def help():
     """ help """
     print("""
-          usage: fab <action>[:arguments] <action>[:arguments]
+        usage: fab <action>[:arguments] <action>[:arguments]
 
-            # shows this page
-            $ fab help
+        # shows this page
+        $ fab help
 
-            # boots an existing instance
-            $ fab up
+        # boots an existing instance
+        $ fab up
 
-            # creates a new instance
-            $ fab cloud:ec2|rackspace|gce region:us-west-2 distribution:centos7 up
+        # creates a new instance
+        $ fab cloud:ec2|rackspace|gce region:us-west-2 distribution:centos7 up
 
-            # installs packages on an existing instance
-            $ fab bootstrap
+        # installs packages on an existing instance
+        $ fab bootstrap
 
-            # creates a new ami
-            $ fab create_image
+        # creates a new ami
+        $ fab create_image
 
-            # destroy the box
-            $ fab destroy
+        # destroy the box
+        $ fab destroy
 
-            # power down the box
-            $ fab down
+        # power down the box
+        $ fab down
 
-            # ssh to the instance
-            $ fab ssh
+        # ssh to the instance
+        $ fab ssh
 
-            # execute a command on the instance
-            $ fab ssh:'ls -l'
+        # execute a command on the instance
+        $ fab ssh:'ls -l'
 
-            # run acceptance tests against new instance
-            $ fab tests
+        # run acceptance tests against new instance
+        $ fab tests
 
-            The following environment variables must be set:
+        The following environment variables must be set:
 
-            For AWS:
-            http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
+        For AWS:
+        http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
 
-            # AWS_ACCESS_KEY_ID
-            # AWS_KEY_FILENAME (the full path to your private key file)
-            # AWS_KEY_PAIR (the KEY_PAIR to use)
-            # AWS_SECRET_ACCESS_KEY
-            # AWS_ACCESS_REGION (optional)
-            # AWS_AMI (optional)
-            # AWS_INSTANCE_TYPE (optional)
+        # AWS_ACCESS_KEY_ID
+        # AWS_KEY_FILENAME (the full path to your private key file)
+        # AWS_KEY_PAIR (the KEY_PAIR to use)
+        # AWS_SECRET_ACCESS_KEY
+        # AWS_ACCESS_REGION (optional)
+        # AWS_AMI (optional)
+        # AWS_INSTANCE_TYPE (optional)
 
-            For Rackspace:
-            http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
+        For Rackspace:
+        http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
 
-            # OS_USERNAME
-            # OS_TENANT_NAME
-            # OS_PASSWORD
-            # OS_NO_CACHE
-            # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
-            # RACKSPACE_KEY_FILENAME (the full path to your private key file)
-            # OS_AUTH_SYSTEM (optional)
-            # OS_AUTH_URL (optional)
-            # OS_REGION_NAME (optional)
+        # OS_USERNAME
+        # OS_TENANT_NAME
+        # OS_PASSWORD
+        # OS_NO_CACHE
+        # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+        # RACKSPACE_KEY_FILENAME (the full path to your private key file)
+        # OS_AUTH_SYSTEM (optional)
+        # OS_AUTH_URL (optional)
+        # OS_REGION_NAME (optional)
 
-            For Google Compute Engine (GCE):
-            # GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
-            # GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
-            # GCE_PROJECT (The GCE project to create the image in)
-            # GCE_ZONE (The GCE zone to use to make the image)
-            # GCE_MACHINE_TYPE (The machine type to use to make the image,
-              defaults to n1-standard-2)
+        For Google Compute Engine (GCE):
+        # GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
+        # GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
+        # GCE_PROJECT (The GCE project to create the image in)
+        # GCE_ZONE (The GCE zone to use to make the image)
+        # GCE_MACHINE_TYPE (The machine type to use to make the image,
+            defaults to n1-standard-2)
 
-            Metadata state is stored locally in .state.json.
+        Metadata state is stored locally in .state.json.
 
-            config.yaml contains a list of default configuration parameters.
+        config.yaml contains a list of default configuration parameters.
           """)
 
 
@@ -297,50 +290,8 @@ def up():
 
 
 @task
-def startup_gce_jenkins_slave(cloud, slave_image):
-    """
-    Background: At this time, jclouds and the Jenkins jclouds plugin
-    don't work correctly on GCE.  Until this is fixed we're going to
-    have static slaves running our GCE builds.
-
-    This function will spin up a slave instance in GCE running the
-    specified image (that should have already been provisioned via
-    ``fab it``.
-    """
-
-    if 'ubuntu' in slave_image:
-        distribution = 'ubuntu14.04'
-    elif 'centos' in slave_image:
-        distribution = 'centos7'
-    else:
-        raise RuntimeError("could not parse distribution from image"
-                           "{}".format(slave_image))
-    creation_args = C[cloud][distribution]['creation_args']
-    jenkins_public_key = (segredos()['env']['default']['ssh']['ssh_keys']
-                          [1]['contents'][0])
-    username = 'jenkins'
-    instance_name = u"jenkins-slave-image-" + unicode(uuid.uuid4())
-    f_startup_gce_instance(instance_name,
-                           creation_args['project'],
-                           creation_args['zone'],
-                           username,
-                           creation_args['machine_type'],
-                           slave_image,
-                           jenkins_public_key)
-
-
-@task
 def cloud(cloud_provider):
     env.config['cloud'] = cloud_provider
-
-# GCE environment variables,
-    if 'gce' in cloud_provider:
-        gce_private_key_filename = os.environ['GCE_PRIVATE_KEY']
-        with open(os.environ['GCE_PUBLIC_KEY'], 'r') as f:
-            gce_public_key = f.read()
-        gce_project = os.environ['GCE_PROJECT']
-        gce_zone = os.environ['GCE_ZONE']
-        gce_machine_type = os.getenv('GCE_MACHINE_TYPE', 'n1-standard-2')
 
 
 @task

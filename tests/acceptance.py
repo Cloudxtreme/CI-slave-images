@@ -5,8 +5,7 @@
 
 import re
 from fabric.api import sudo, env, run
-from bookshelf.api_v1 import (log_green,
-                              load_state_from_disk)
+from bookshelf.api_v1 import (log_green)
 from fabric.context_managers import settings
 from envassert import (file,
                        process,
@@ -22,6 +21,7 @@ from lib.bootstrap import (local_docker_images,
 
 from lib.mycookbooks import cloud_region_distro_config
 
+
 def acceptance_tests(distribution):
     """ proxy function that calls acceptance tests for speficic OS
 
@@ -32,8 +32,8 @@ def acceptance_tests(distribution):
                           env.config['public_dns_name'])
 
     cloud, region, distro, k = cloud_region_distro_config()
-    env.host_string=ec2_host
-    env.key_filename=k['key_filename']
+    env.host_string = ec2_host
+    env.key_filename = k['key_filename']
 
     # run common tests for all platforms
     acceptance_tests_common_tests_for_flocker(distribution)
