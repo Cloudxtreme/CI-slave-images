@@ -2,7 +2,7 @@
 // jobs.groovy
 
 
-def project = 'ClusterHQ/CI-slave-images'
+def github_project = 'ClusterHQ/CI-slave-images'
 def git_url = 'https://github.com/ClusterHQ/CI-slave-images.git'
 
 // build functions and steps
@@ -187,7 +187,7 @@ def jobs_common_parameters = [
 
 dashBranchName = escape_name("${RECONFIGURE_BRANCH}")
 
-dashProject = escape_name(project)
+dashProject = escape_name(github_project)
 
 folder(dashProject + '/' + dashBranchName )
 
@@ -220,7 +220,6 @@ for (view in with_views.keySet()) {
 // generate all the child jobs for our multijob
 for (cloud in on_clouds.keySet()) {
   values = on_clouds.get(cloud)
-  println(values)
 
   for (region in values['regions']) {
 
@@ -231,6 +230,25 @@ for (cloud in on_clouds.keySet()) {
 
       job(job_name) {
         parameters {
+          configure { project->
+            project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+                'name'('AWS_SECRET_ACCESS_KEY')
+                'description'('AWS Secret Key')
+                'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
+              }
+
+            project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+                'name'('OS_PASSWORD')
+                'description'('Rackspace API Key')
+                'defaultValue'('${OS_PASSWORD}')
+              }
+
+            project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+                'name'('GCE_PRIVATE_KEY')
+                'description'('GCE PRIVATE KEY')
+                'defaultValue'('${GCE_PRIVATE_KEY}')
+            }
+          }
 
           jobs_common_parameters.each { k, v ->
             stringParam(k, v.default_value)
@@ -248,7 +266,7 @@ for (cloud in on_clouds.keySet()) {
             cloneTimeout(2)
             remote {
               name("upstream")
-              github(project)
+              github(github_project)
             }
             configure { node ->
               node / gitConfigName('Jenkins')
@@ -268,6 +286,7 @@ for (cloud in on_clouds.keySet()) {
         wrappers {
             timestamps()
             colorizeOutput()
+            maskPasswords()
         }
 
         label(on_label)
@@ -284,18 +303,35 @@ for (cloud in on_clouds.keySet()) {
 job_name = dashProject + '/' + dashBranchName + '/' + '__main_multijob'
 
 multiJob(job_name) {
+  configure { project->
+    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+        'name'('AWS_SECRET_ACCESS_KEY')
+        'description'('AWS Secret Key')
+        'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
+      }
+
+    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+        'name'('OS_PASSWORD')
+        'description'('Rackspace API Key')
+        'defaultValue'('${OS_PASSWORD}')
+      }
+
+    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+        'name'('GCE_PRIVATE_KEY')
+        'description'('GCE PRIVATE KEY')
+        'defaultValue'('${GCE_PRIVATE_KEY}')
+    }
+  }
 
   parameters {
     stringParam("TRIGGERED_BRANCH", "${RECONFIGURE_BRANCH}",
                   "Branch that triggered this job" )
 
-    stringParam("AWS_ACCESS_KEY_ID", 'FILL_ME_IN')
-    stringParam("AWS_SECRET_ACCESS_KEY", 'FILL_ME_IN')
+    stringParam("AWS_ACCESS_KEY_ID", 'FILL ME IN')
     stringParam("AWS_KEY_FILENAME", '~/.ssh/id_rsa')
     stringParam("AWS_KEY_PAIR", 'jenkins-slave')
 
-    stringParam("OS_USERNAME", 'FILL_ME_IN')
-    stringParam("OS_PASSWORD", 'FILL_ME_IN')
+    stringParam("OS_USERNAME", 'FILL ME IN')
     stringParam("OS_TENANT_NAME", '929000')
     stringParam("OS_NO_CACHE", '1')
     stringParam("RACKSPACE_KEY_PAIR", 'jenkins-slave')
@@ -306,12 +342,12 @@ multiJob(job_name) {
 
     stringParam("GCE_PROJECT", "FILL_ME_IN")
     stringParam("GCE_PUBLIC_KEY", "FILL_ME_IN")
-    stringParam("GCE_PRIVATE_KEY", "FILL_ME_IN")
   }
 
   wrappers {
     timestamps()
     colorizeOutput()
+    maskPasswords()
   }
 
   steps {
@@ -333,6 +369,26 @@ multiJob(job_name) {
               killPhaseCondition("NEVER")
               currentJobParameters(true)
               parameters {
+                configure { project->
+                  project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+                      'name'('AWS_SECRET_ACCESS_KEY')
+                      'description'('AWS Secret Key')
+                      'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
+                    }
+
+                  project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+                      'name'('OS_PASSWORD')
+                      'description'('Rackspace API Key')
+                      'defaultValue'('${OS_PASSWORD}')
+                    }
+
+                  project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+                      'name'('GCE_PRIVATE_KEY')
+                      'description'('GCE PRIVATE KEY')
+                      'defaultValue'('${GCE_PRIVATE_KEY}')
+                  }
+                }
+
                 jobs_common_parameters.each { k, v ->
                   predefinedProp(k, v.default_value)
                 }
