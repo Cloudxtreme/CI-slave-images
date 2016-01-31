@@ -220,7 +220,6 @@ for (view in with_views.keySet()) {
 // generate all the child jobs for our multijob
 for (cloud in on_clouds.keySet()) {
   values = on_clouds.get(cloud)
-  println(values)
 
   for (region in values['regions']) {
 
@@ -311,9 +310,15 @@ multiJob(job_name) {
 
 
     parameters {
-      credentialsParam('DEPLOY_KEY')
+      credentialsParam('DEPLOY_KEY') {
+       type('org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl')
+        required()
+        defaultValue('ssh-key-staging')
+        description('SSH Key for deploying build artifacts')
+      }
     }
   }
+
 
   wrappers {
     timestamps()
