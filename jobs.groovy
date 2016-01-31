@@ -122,7 +122,7 @@ def with_steps = hashbang +
 def timeout = 90
 
 // Jenkins Slave type
-def on_label = 'aws-centos-7-T2Small'
+def on_label = 'aws-centos-7-T2Medium-32-executors'
 
 
 // list of tabs to generate on each feature branch folder

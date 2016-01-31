@@ -309,7 +309,10 @@ def load_config():
     env.state = False
 
     # slurp the yaml config file
-    env.global_config = parse_config('config.yaml')['clouds']
+    try:
+        env.global_config = parse_config('config.yaml')['clouds']
+    except:
+        raise("Unable to parse config.yaml, see README")
 
     # look up our state.json file, and override any settings found
     load_state_from_disk()

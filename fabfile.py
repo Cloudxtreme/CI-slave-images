@@ -65,7 +65,7 @@ def help():
             $ fab up
 
             # creates a new instance
-            $ fab cloud:ec2|rackspace|gce region:us-west-2 distribution:centos7
+            $ fab cloud:ec2|rackspace|gce region:us-west-2 distribution:centos7 up
 
             # installs packages on an existing instance
             $ fab bootstrap
