@@ -10,6 +10,8 @@ List them a-z if you must.
 import os
 import sys
 import yaml
+import re
+import json
 
 from time import sleep
 
@@ -26,7 +28,6 @@ from cuisine import (user_ensure,
 from bookshelf.api_v1 import (dir_ensure,
                               file_attribs,
                               log_green,
-                              load_state_from_disk,
                               enable_firewalld_service,
                               log_yellow,
                               add_firewalld_port,
@@ -34,21 +35,35 @@ from bookshelf.api_v1 import (dir_ensure,
                               reboot,
                               yum_install)
 from bookshelf.api_v1 import (rackspace as f_rackspace,
-                              ec2 as f_ec2)
+                              ec2 as f_ec2,
+                              up as f_up,
+                              gce as f_gce)
+
+from bookshelf.api_v2.ec2 import (
+    create_server_ec2,
+    connect_to_ec2,
+)
+
+from bookshelf.api_v2.rackspace import (
+    create_server_rackspace,
+    connect_to_rackspace,
+)
 
 
 def add_user_to_docker_group():
     """ make sure the user running jenkins is part of the docker group """
     log_green('adding the user running jenkins into the docker group')
-    data = load_state_from_disk()
+
+    cloud, region, distro, k = cloud_region_distro_config()
+
     with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                   warn_only=True, capture=True):
-        if 'centos' in data['distribution']:
+        if 'centos' in distro:
             user_ensure('centos', home='/home/centos', shell='/bin/bash')
             group_ensure('docker', gid=55)
             group_user_ensure('docker', 'centos')
 
-        if 'ubuntu' in data['distribution']:
+        if 'ubuntu' in distro:
             user_ensure('ubuntu', home='/home/ubuntu', shell='/bin/bash')
             group_ensure('docker', gid=55)
             group_user_ensure('docker', 'ubuntu')
@@ -78,7 +93,11 @@ def check_for_missing_environment_variables(cloud_type=None):
                                 'OS_REGION_NAME',
                                 'RACKSPACE_KEY_PAIR',
                                 'RACKSPACE_KEY_FILENAME',
-                                'OS_NO_CACHE']}
+                                'OS_NO_CACHE'],
+
+                  'gce': ['GCE_PRIVATE_KEY',
+                          'GCE_PUBLIC_KEY'],
+                  }
 
     for cloud in cloud_type:
         if not set(cloud_vars[cloud]).issubset(set(os.environ)):
@@ -105,6 +124,14 @@ def ec2():
     f_ec2()
 
 
+def gce():
+    f_gce()
+
+
+def rackspace():
+    f_rackspace()
+
+
 def fix_umask():
     """ Sets umask to 022
 
@@ -122,13 +149,13 @@ def fix_umask():
             'UMASK.*', 'UMASK  022',
             use_sudo=True)
 
-        data = load_state_from_disk()
+        cloud, region, distro, k = cloud_region_distro_config()
 
-        homedir = '/home/' + data['username'] + '/'
+        homedir = '/home/' + k['username'] + '/'
         for f in [homedir + '.bash_profile',
                   homedir + '.bashrc']:
             file_append(filename=f, text='umask 022')
-            file_attribs(f, mode=750, owner=data['username'])
+            file_attribs(f, mode=750, owner=k['username'])
 
 
 def get_cloud_environment():
@@ -143,6 +170,8 @@ def get_cloud_environment():
             clouds.append('ec2')
         if 'cloud=rackspace' in action:
             clouds.append('rackspace')
+        if 'cloud=gce' in action:
+            clouds.append('gce')
     return clouds
 
 
@@ -161,14 +190,14 @@ def install_nginx():
         install the package during the acceptance tests.
     """
 
-    data = load_state_from_disk()
-    if 'centos' in data['username']:
+    cloud, region, distro, k = cloud_region_distro_config()
+    if 'centos' in k['username']:
         yum_install(packages=['nginx'])
         systemd('nginx', start=False, unmask=True)
         systemd('nginx', start=True, unmask=True)
         enable_firewalld_service()
         add_firewalld_port('80/tcp', permanent=True)
-    if 'ubuntu' in data['username']:
+    if 'ubuntu' in k['username']:
         sudo('apt-get -y install nginx')
         # systemd('nginx', start=False, unmask=True)
         # systemd('nginx', start=True, unmask=True)
@@ -179,19 +208,12 @@ def install_nginx():
 
 
 def local_docker_images():
-        return ['busybox',
-                'openshift/busybox-http-app',
-                'python:2.7-slim',
-                'clusterhqci/fpm-ubuntu-trusty',
-                'clusterhqci/fpm-ubuntu-vivid',
-                'clusterhqci/fpm-centos-7']
-
-
-def rackspace():
-    f_rackspace()
-    # Rackspace servers use root instead of the 'centos/ubuntu'
-    # when they first boot.
-    env.user = 'root'
+    return ['busybox',
+            'openshift/busybox-http-app',
+            'python:2.7-slim',
+            'clusterhqci/fpm-ubuntu-trusty',
+            'clusterhqci/fpm-ubuntu-vivid',
+            'clusterhqci/fpm-centos-7']
 
 
 def segredos():
@@ -208,8 +230,8 @@ def symlink_sh_to_bash():
     using bash, let's symlink /bin/sh -> /bin/bash
     """
     # read distribution from state file
-    data = load_state_from_disk()
-    if 'ubuntu' in data['distribution'].lower():
+    cloud, region, distro, k = cloud_region_distro_config()
+    if 'ubuntu' in distro.lower():
         sudo('/bin/rm /bin/sh')
         sudo('/bin/ln -s /bin/bash /bin/sh')
 
@@ -252,3 +274,153 @@ def upgrade_kernel_and_grub(do_reboot=False, log=True):
                 if log:
                     log_yellow('rebooting host')
                 reboot()
+
+
+def parse_config(filename):
+    """ parses the YAML config file and expands any environment variables """
+
+    pattern = re.compile(r'^\<%= ENV\[\'(.*)\'\] %\>(.*)$')
+    yaml.add_implicit_resolver("!pathex", pattern)
+
+    def pathex_constructor(loader, node):
+        value = loader.construct_scalar(node)
+        envVar, remainingPath = pattern.match(value).groups()
+        return os.environ[envVar] + remainingPath
+
+    yaml.add_constructor('!pathex', pathex_constructor)
+
+    with open(filename) as f:
+        return(
+            yaml.load(f)
+        )
+
+
+def load_config():
+    # Modify some global Fabric behaviours:
+    # Let's disable known_hosts, since on Clouds that behaviour can get in the
+    # way as we continuosly destroy/create boxes.
+    env.disable_known_hosts = True
+    env.use_ssh_config = False
+    env.eagerly_disconnect = True
+    env.connection_attemtps = 5
+
+    # initialise some keys
+    env.config = {}
+    env.state = False
+
+    # slurp the yaml config file
+    try:
+        env.global_config = parse_config('config.yaml')['clouds']
+    except:
+        raise("Unable to parse config.yaml, see README")
+
+    # look up our state.json file, and override any settings found
+    load_state_from_disk()
+
+
+def load_state_from_disk():
+    """ loads state.json file into fabric.env """
+    if os.path.isfile('.state.json'):
+        env.state = True
+        with open('.state.json') as data_file:
+            env.config = json.load(data_file)
+
+
+def create_new_vm():
+    """ creates a new VM when one doesn't exist """
+
+    cloud, region, distro, k = cloud_region_distro_config()
+
+    k = env.global_config[cloud]['regions'][region]['distribution'][distro]
+
+    connect_to_cloud_provider()
+
+    if cloud in ['ec2']:
+        instance = create_server_ec2(
+            connection=env.connection,
+            region=region,
+            disk_name=k['disk_name'],
+            disk_size=k['disk_size'],
+            ami=k['ami'],
+            key_pair=k['key_pair'],
+            instance_type=k['instance_type'],
+            tags=k['tags'],
+            security_groups=k['security_groups']
+        )
+
+        env.config['public_dns_name'] = instance.public_dns_name
+
+    if cloud in ['rackspace']:
+        instance = create_server_rackspace(
+            connection=env.connection,
+            distribution=distro,
+            disk_name=k['disk_name'],
+            disk_size=k['disk_size'],
+            ami=k['ami'],
+            region=region,
+            key_pair=k['key_pair'],
+            instance_type=k['instance_type'],
+            instance_name=k['instance_name'],
+            tags=k['tags'],
+            security_groups=k['security_groups']
+        )
+        env.config['public_dns_name'] = instance.accessIPv4
+
+    if cloud == 'gce':
+        f_up(cloud='gce',
+             project=k['project'],
+             zone=region,
+             username=k['username'],
+             machine_type=k['machine_type'],
+             base_image_prefix=k['base_image_prefix'],
+             base_image_project=k['base_image_project'],
+             public_key=k['public_key'],
+             instance_name=k['instance_name'],
+             disk_name=k['instance_name'])
+
+        print(instance.__dict__)
+        env.config['public_dns_name'] = instance.public_dns_name
+
+    env.config['instance_id'] = instance.id
+    env.config['username'] = k['username']
+    with open('.state.json', 'w') as f:
+        f.write(
+            json.dumps(env.config)
+        )
+
+
+def cloud_region_distro_config():
+    """ returns tuple of :
+        cloud, region, distro
+        and slice of the dictionary from the config.yaml file
+        corresponding to the cloud,region,distro
+    """
+    load_state_from_disk()
+
+    cloud = env.config['cloud']
+    region = env.config['region']
+    distro = env.config['distribution']
+    return (
+        cloud,
+        region,
+        distro,
+        env.global_config[cloud]['regions'][region]['distribution'][distro]
+    )
+
+
+def connect_to_cloud_provider():
+    """ stores a connection handle on fabric.env.connection """
+    if 'connection' not in env:
+        cloud, region, distro, k = cloud_region_distro_config()
+        if 'ec2' in cloud:
+            env.connection = connect_to_ec2(
+                region=region,
+                access_key_id=k['access_key_id'],
+                secret_access_key=k['secret_access_key']
+            )
+        if 'rackspace' in cloud:
+            env.connection = connect_to_rackspace(
+                region=region,
+                access_key_id=k['access_key_id'],
+                secret_access_key=k['secret_access_key']
+            )
