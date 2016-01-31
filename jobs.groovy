@@ -147,8 +147,6 @@ def jobs_common_parameters = [
 
   AWS_ACCESS_KEY_ID:[
     default_value:'${AWS_ACCESS_KEY_ID}', description:''],
-  AWS_SECRET_ACCESS_KEY: [
-    default_value:'${AWS_SECRET_ACCESS_KEY}', description:''],
   AWS_KEY_FILENAME:[
     default_value:'${AWS_KEY_FILENAME}', description:''],
   AWS_KEY_PAIR:[
@@ -156,8 +154,6 @@ def jobs_common_parameters = [
 
   OS_USERNAME:[
     default_value:'${OS_USERNAME}', description:''],
-  OS_PASSWORD:[
-    default_value:'${OS_PASSWORD}', description:''],
   OS_TENANT_NAME:[
     default_value:'${OS_TENANT_NAME}', description:''],
   RACKSPACE_KEY_PAIR:[
@@ -179,8 +175,6 @@ def jobs_common_parameters = [
     default_value:'${GCE_ZONE}', description:''],
   GCE_PUBLIC_KEY: [
     default_value:'${GCE_PUBLIC_KEY}', description:''],
-  GCE_PRIVATE_KEY: [
-    default_value:'${GCE_PRIVATE_KEY}', description:''],
 ]
 
 
