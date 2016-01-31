@@ -105,7 +105,7 @@ def on_clouds = [
                        'HKG'],
              distributions: [ 'centos7', 'ubuntu1404'] ],
 
-  gce: [regions: ['us-east1-b'],
+  gce: [regions: [],
         distributions: [ 'centos7',
                          'ubuntu1404'] ]
 ]
