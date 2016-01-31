@@ -1,11 +1,11 @@
 // vim: ai ts=2 sts=2 et sw=2 ft=groovy fdm=indent et foldlevel=0
 // jobs.groovy
 
-
+// set the GitHub username and repository, and the URL to that same repo
 def project = 'ClusterHQ/CI-slave-images'
 def git_url = 'https://github.com/ClusterHQ/CI-slave-images.git'
 
-// build functions and steps
+// build functions and steps below this point
 
 def hashbang = """
   #!/bin/bash -l
@@ -63,10 +63,6 @@ def run_fabric = '''
   fab destroy
   '''.stripIndent()
 
-/*
-list of clouds, regions, linux distributions for which jenkins jobs are
-to be created.
-*/
 
 def escape_name(name) {
     /*
@@ -90,6 +86,8 @@ def full_job_name(dashProject, dashBranchName, job_name) {
     */
     return folder_name(dashProject, dashBranchName) + "/${job_name}"
 }
+
+// list of clouds, regions, linux distributions for jenkins jobs.
 def on_clouds = [
   ec2:[regions: ['eu-central-1',
                  'ap-southeast-1',
@@ -118,12 +116,8 @@ def with_steps = hashbang +
                  clone_segredos +
                  run_fabric
 
-// job timeout
-def timeout = 90
-
-// Jenkins Slave type
+// Which slave to run this job
 def on_label = 'aws-centos-7-T2Medium_32_executors'
-
 
 // list of tabs to generate on each feature branch folder
 def with_views = [
@@ -140,55 +134,173 @@ def with_views = [
                        regex: '(.*_(?i)ubuntu1404)' ]
 ]
 
+// AWS parameters
+def aws_parameters = {
+  return [
+    AWS_ACCESS_KEY_ID:[
+      child_job_value:'${AWS_ACCESS_KEY_ID}',
+      multijob_value: 'FILL_ME_IN',
+      description:'AWS Access key'],
+
+    AWS_SECRET_ACCESS_KEY: [
+      child_job_value:'${AWS_SECRET_ACCESS_KEY}',
+      multijob_value: 'FILL_ME_IN',
+      description:'AWS Secret Key'],
+
+    AWS_KEY_FILENAME:[
+      child_job_value:'${AWS_KEY_FILENAME}',
+      multijob_value: '~/.ssh/id_rsa',
+      description:'Full path to the Jenkins Slave SSH private key'],
+
+    AWS_KEY_PAIR:[
+      child_job_value:'${AWS_KEY_PAIR}',
+      multijob_value: 'jenkins-slave',
+      description:'Name of the AWS key-pair to use'],
+  ]
+}
+
+// Rackspace parameters
+def rackspace_parameters = {
+return [
+    OS_USERNAME:[
+      child_job_value:'${OS_USERNAME}',
+      multijob_value: 'FILL_ME_IN',
+      description:'Rackspace Username'],
+
+    OS_PASSWORD:[
+      child_job_value:'${OS_PASSWORD}',
+      multijob_value: 'FILL_ME_IN',
+      description:'Rackspace API key'],
+
+    OS_TENANT_NAME:[
+      child_job_value:'${OS_TENANT_NAME}',
+      multijob_value: '929000',
+      description:'Rackspace Tenant ID'],
+
+    RACKSPACE_KEY_PAIR:[
+      child_job_value:'${RACKSPACE_KEY_PAIR}',
+      multijob_value: 'jenkins-slave',
+      description:'Rackspace SSH key-pair name'],
+
+    RACKSPACE_KEY_FILENAME:[
+      child_job_value:'${RACKSPACE_KEY_FILENAME}',
+      multijob_value: '~/.ssh/id_rsa',
+      description:'Full path to the Rackspace key-pair to use'],
+
+    RACKSPACE_PUBLIC_KEY_FILENAME: [
+      child_job_value:'${RACKSPACE_PUBLIC_KEY_FILENAME}',
+      multijob_value: '~/.ssh/id_rsa.pub',
+      description:'Full path to the Rackspace public key'],
+
+    OS_AUTH_SYSTEM:[
+      child_job_value:'${OS_AUTH_SYSTEM}',
+      multijob_value: 'rackspace',
+      description:'Openstack Authentication method'],
+
+    OS_AUTH_URL:[
+      child_job_value:'${OS_AUTH_URL}',
+      multijob_value: 'https://identity.api.rackspacecloud.com/v2.0/',
+      description:'Keystone URL'],
+
+    OS_NO_CACHE:[
+      child_job_value:'${OS_NO_CACHE}',
+      multijob_value: '1',
+      description:''],
+  ]
+}
+
+// GCE parameters
+def gce_parameters = {
+  return [
+    GCE_PROJECT: [
+      child_job_value:'${GCE_PROJECT}',
+      multijob_value: 'FILL_ME_IN',
+      description:''],
+
+    GCE_ZONE: [
+      child_job_value:'${GCE_ZONE}',
+      multijob_value: 'FILL_ME_IN',
+      description:''],
+
+    GCE_PUBLIC_KEY: [
+      child_job_value:'${GCE_PUBLIC_KEY}',
+      multijob_value: 'FILL_ME_IN',
+      description:''],
+
+    GCE_PRIVATE_KEY: [
+      child_job_value:'${GCE_PRIVATE_KEY}',
+      multijob_value: 'FILL_ME_IN',
+      description:''],
+  ]
+}
+
 // parameters that are common to every job
-def jobs_common_parameters = [
-  TRIGGERED_BRANCH:[
-    default_value:'${RECONFIGURE_BRANCH}', description:''],
+def common_parameters = {
+  return [
+    TRIGGERED_BRANCH:[
+      child_job_value:'${RECONFIGURE_BRANCH}',
+      multijob_value: '${RECONFIGURE_BRANCH}',
+      description:'Branch that triggered this job'] +
 
-  AWS_ACCESS_KEY_ID:[
-    default_value:'${AWS_ACCESS_KEY_ID}', description:''],
-  AWS_SECRET_ACCESS_KEY: [
-    default_value:'${AWS_SECRET_ACCESS_KEY}', description:''],
-  AWS_KEY_FILENAME:[
-    default_value:'${AWS_KEY_FILENAME}', description:''],
-  AWS_KEY_PAIR:[
-    default_value:'${AWS_KEY_PAIR}', description:''],
+      aws_parameters +
+      rackspace_parameters +
+      gce_parameters
+  ]
+}
 
-  OS_USERNAME:[
-    default_value:'${OS_USERNAME}', description:''],
-  OS_PASSWORD:[
-    default_value:'${OS_PASSWORD}', description:''],
-  OS_TENANT_NAME:[
-    default_value:'${OS_TENANT_NAME}', description:''],
-  RACKSPACE_KEY_PAIR:[
-    default_value:'${RACKSPACE_KEY_PAIR}', description:''],
-  RACKSPACE_KEY_FILENAME:[
-    default_value:'${RACKSPACE_KEY_FILENAME}', description:''],
-  RACKSPACE_PUBLIC_KEY_FILENAME: [
-    default_value:'${RACKSPACE_PUBLIC_KEY_FILENAME}', description:''],
-  OS_AUTH_SYSTEM:[
-    default_value:'${OS_AUTH_SYSTEM}', description:''],
-  OS_AUTH_URL:[
-    default_value:'${OS_AUTH_URL}', description:''],
-  OS_NO_CACHE:[
-    default_value:'${OS_NO_CACHE}', description:''],
+// parameters for the child jobs
+def child_job_parameters(cloud, distribution, region) {
+  return {
+    parameters {
 
-  GCE_PROJECT: [
-    default_value:'${GCE_PROJECT}', description:''],
-  GCE_ZONE: [
-    default_value:'${GCE_ZONE}', description:''],
-  GCE_PUBLIC_KEY: [
-    default_value:'${GCE_PUBLIC_KEY}', description:''],
-  GCE_PRIVATE_KEY: [
-    default_value:'${GCE_PRIVATE_KEY}', description:''],
-]
+      common_parameters.each { k, v ->
+        stringParam(k, v.child_job_value)
+      }
 
+      // these are the fabric run options to use
+      stringParam("CLOUD", cloud)
+      stringParam("DISTRIBUTION", distribution)
+      stringParam("AWS_REGION", region)
+      stringParam("OS_REGION_NAME", region)
+      stringParam("REGION", region)
+    }
+  }
+}
+
+// parameters for the multijob
+def multijob_parameters = {
+  return {
+    parameters {
+      common_parameters.each { k, v ->
+        stringParam(k, v.multijob_value)
+      }
+    }
+  }
+}
+
+// parameters to define in the multijob for the child jobs
+def multijob_child_job_parameters(cloud, distribution, region) {
+  return {
+    parameters {
+      common_parameters.each { k, v ->
+        predefinedProp(k, v.child_job_value)
+      }
+
+      // these are the fabric run options to use
+      predefinedProp('AWS_REGION', region)
+      predefinedProp('OS_REGION_NAME', region)
+      predefinedProp('CLOUD', cloud)
+      predefinedProp('DISTRIBUTION', distribution)
+    }
+  }
+}
 
 
 dashBranchName = escape_name("${RECONFIGURE_BRANCH}")
 
 dashProject = escape_name(project)
 
+// placeholder for our branch
 folder(dashProject + '/' + dashBranchName )
 
 
@@ -220,7 +332,6 @@ for (view in with_views.keySet()) {
 // generate all the child jobs for our multijob
 for (cloud in on_clouds.keySet()) {
   values = on_clouds.get(cloud)
-  println(values)
 
   for (region in values['regions']) {
 
@@ -230,18 +341,7 @@ for (cloud in on_clouds.keySet()) {
         cloud + '_' + region + '_' + distribution
 
       job(job_name) {
-        parameters {
-
-          jobs_common_parameters.each { k, v ->
-            stringParam(k, v.default_value)
-          }
-
-          stringParam("CLOUD", cloud)
-          stringParam("DISTRIBUTION", distribution)
-          stringParam("AWS_REGION", region)
-          stringParam("OS_REGION_NAME", region)
-          stringParam("REGION", region)
-        }
+        child_job_parameters(cloud, distribution, region)
 
         scm {
           git {
@@ -285,29 +385,7 @@ job_name = dashProject + '/' + dashBranchName + '/' + '__main_multijob'
 
 multiJob(job_name) {
 
-  parameters {
-    stringParam("TRIGGERED_BRANCH", "${RECONFIGURE_BRANCH}",
-                  "Branch that triggered this job" )
-
-    stringParam("AWS_ACCESS_KEY_ID", 'FILL_ME_IN')
-    stringParam("AWS_SECRET_ACCESS_KEY", 'FILL_ME_IN')
-    stringParam("AWS_KEY_FILENAME", '~/.ssh/id_rsa')
-    stringParam("AWS_KEY_PAIR", 'jenkins-slave')
-
-    stringParam("OS_USERNAME", 'FILL_ME_IN')
-    stringParam("OS_PASSWORD", 'FILL_ME_IN')
-    stringParam("OS_TENANT_NAME", '929000')
-    stringParam("OS_NO_CACHE", '1')
-    stringParam("RACKSPACE_KEY_PAIR", 'jenkins-slave')
-    stringParam("RACKSPACE_KEY_FILENAME", '~/.ssh/id_rsa')
-    stringParam("RACKSPACE_PUBLIC_KEY_FILENAME", '~/.ssh/id_rsa.pub')
-    stringParam("OS_AUTH_SYSTEM", 'rackspace')
-    stringParam("OS_AUTH_URL", 'https://identity.api.rackspacecloud.com/v2.0/')
-
-    stringParam("GCE_PROJECT", "FILL_ME_IN")
-    stringParam("GCE_PUBLIC_KEY", "FILL_ME_IN")
-    stringParam("GCE_PRIVATE_KEY", "FILL_ME_IN")
-  }
+  multijob_parameters()
 
   wrappers {
     timestamps()
@@ -332,17 +410,7 @@ multiJob(job_name) {
             phaseJob(job_name) {
               killPhaseCondition("NEVER")
               currentJobParameters(true)
-              parameters {
-                jobs_common_parameters.each { k, v ->
-                  predefinedProp(k, v.default_value)
-                }
-
-                predefinedProp('AWS_REGION', region)
-                predefinedProp('OS_REGION_NAME', region)
-                predefinedProp('CLOUD', cloud)
-                predefinedProp('DISTRIBUTION', distribution)
-
-              }
+              multijob_child_job_parameters(cloud, distribution, region)
             }
           }
         }
