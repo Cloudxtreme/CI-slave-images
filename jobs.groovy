@@ -268,6 +268,7 @@ for (cloud in on_clouds.keySet()) {
         wrappers {
             timestamps()
             colorizeOutput()
+            maskPasswords()
         }
 
         label(on_label)
@@ -312,6 +313,7 @@ multiJob(job_name) {
   wrappers {
     timestamps()
     colorizeOutput()
+    maskPasswords()
   }
 
   steps {
