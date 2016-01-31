@@ -243,29 +243,24 @@ def common_parameters = [
 // parameters for the child jobs
 def child_job_parameters(cloud, distribution, region) {
   return {
-    parameters {
-
-      common_parameters.each { k, v ->
-        stringParam(k, v.child_job_value)
-      }
-
-      // these are the fabric run options to use
-      stringParam("CLOUD", cloud)
-      stringParam("DISTRIBUTION", distribution)
-      stringParam("AWS_REGION", region)
-      stringParam("OS_REGION_NAME", region)
-      stringParam("REGION", region)
+    common_parameters.each { k, v ->
+      stringParam(k, v.child_job_value)
     }
+
+    // these are the fabric run options to use
+    stringParam("CLOUD", cloud)
+    stringParam("DISTRIBUTION", distribution)
+    stringParam("AWS_REGION", region)
+    stringParam("OS_REGION_NAME", region)
+    stringParam("REGION", region)
   }
 }
 
 // parameters for the multijob
 def multijob_parameters = {
   return {
-    parameters {
-      common_parameters.each { k, v ->
-        stringParam(k, v.multijob_value)
-      }
+    common_parameters.each { k, v ->
+      stringParam(k, v.multijob_value)
     }
   }
 }
@@ -273,17 +268,15 @@ def multijob_parameters = {
 // parameters to define in the multijob for the child jobs
 def multijob_child_job_parameters(cloud, distribution, region) {
   return {
-    parameters {
-      common_parameters.each { k, v ->
-        predefinedProp(k, v.child_job_value)
-      }
-
-      // these are the fabric run options to use
-      predefinedProp('AWS_REGION', region)
-      predefinedProp('OS_REGION_NAME', region)
-      predefinedProp('CLOUD', cloud)
-      predefinedProp('DISTRIBUTION', distribution)
+    common_parameters.each { k, v ->
+      predefinedProp(k, v.child_job_value)
     }
+
+    // these are the fabric run options to use
+    predefinedProp('AWS_REGION', region)
+    predefinedProp('OS_REGION_NAME', region)
+    predefinedProp('CLOUD', cloud)
+    predefinedProp('DISTRIBUTION', distribution)
   }
 }
 
@@ -333,7 +326,9 @@ for (cloud in on_clouds.keySet()) {
         cloud + '_' + region + '_' + distribution
 
       job(job_name) {
-        child_job_parameters(cloud, distribution, region)
+        parameters {
+          child_job_parameters(cloud, distribution, region)
+        }
 
         scm {
           git {
@@ -377,7 +372,9 @@ job_name = dashProject + '/' + dashBranchName + '/' + '__main_multijob'
 
 multiJob(job_name) {
 
-  multijob_parameters()
+  parameters {
+    multijob_parameters()
+  }
 
   wrappers {
     timestamps()
@@ -402,7 +399,9 @@ multiJob(job_name) {
             phaseJob(job_name) {
               killPhaseCondition("NEVER")
               currentJobParameters(true)
-              multijob_child_job_parameters(cloud, distribution, region)
+              parameters {
+                multijob_child_job_parameters(cloud, distribution, region)
+              }
             }
           }
         }
