@@ -135,118 +135,110 @@ def with_views = [
 ]
 
 // AWS parameters
-def aws_parameters = {
-  return [
-    AWS_ACCESS_KEY_ID:[
-      child_job_value:'${AWS_ACCESS_KEY_ID}',
-      multijob_value: 'FILL_ME_IN',
-      description:'AWS Access key'],
+def aws_parameters = [
+  AWS_ACCESS_KEY_ID:[
+    child_job_value:'${AWS_ACCESS_KEY_ID}',
+    multijob_value: 'FILL_ME_IN',
+    description:'AWS Access key'],
 
-    AWS_SECRET_ACCESS_KEY: [
-      child_job_value:'${AWS_SECRET_ACCESS_KEY}',
-      multijob_value: 'FILL_ME_IN',
-      description:'AWS Secret Key'],
+  AWS_SECRET_ACCESS_KEY: [
+    child_job_value:'${AWS_SECRET_ACCESS_KEY}',
+    multijob_value: 'FILL_ME_IN',
+    description:'AWS Secret Key'],
 
-    AWS_KEY_FILENAME:[
-      child_job_value:'${AWS_KEY_FILENAME}',
-      multijob_value: '~/.ssh/id_rsa',
-      description:'Full path to the Jenkins Slave SSH private key'],
+  AWS_KEY_FILENAME:[
+    child_job_value:'${AWS_KEY_FILENAME}',
+    multijob_value: '~/.ssh/id_rsa',
+    description:'Full path to the Jenkins Slave SSH private key'],
 
-    AWS_KEY_PAIR:[
-      child_job_value:'${AWS_KEY_PAIR}',
-      multijob_value: 'jenkins-slave',
-      description:'Name of the AWS key-pair to use'],
-  ]
-}
+  AWS_KEY_PAIR:[
+    child_job_value:'${AWS_KEY_PAIR}',
+    multijob_value: 'jenkins-slave',
+    description:'Name of the AWS key-pair to use'],
+]
 
 // Rackspace parameters
-def rackspace_parameters = {
-return [
-    OS_USERNAME:[
-      child_job_value:'${OS_USERNAME}',
-      multijob_value: 'FILL_ME_IN',
-      description:'Rackspace Username'],
+def rackspace_parameters = [
+  OS_USERNAME:[
+    child_job_value:'${OS_USERNAME}',
+    multijob_value: 'FILL_ME_IN',
+    description:'Rackspace Username'],
 
-    OS_PASSWORD:[
-      child_job_value:'${OS_PASSWORD}',
-      multijob_value: 'FILL_ME_IN',
-      description:'Rackspace API key'],
+  OS_PASSWORD:[
+    child_job_value:'${OS_PASSWORD}',
+    multijob_value: 'FILL_ME_IN',
+    description:'Rackspace API key'],
 
-    OS_TENANT_NAME:[
-      child_job_value:'${OS_TENANT_NAME}',
-      multijob_value: '929000',
-      description:'Rackspace Tenant ID'],
+  OS_TENANT_NAME:[
+    child_job_value:'${OS_TENANT_NAME}',
+    multijob_value: '929000',
+    description:'Rackspace Tenant ID'],
 
-    RACKSPACE_KEY_PAIR:[
-      child_job_value:'${RACKSPACE_KEY_PAIR}',
-      multijob_value: 'jenkins-slave',
-      description:'Rackspace SSH key-pair name'],
+  RACKSPACE_KEY_PAIR:[
+    child_job_value:'${RACKSPACE_KEY_PAIR}',
+    multijob_value: 'jenkins-slave',
+    description:'Rackspace SSH key-pair name'],
 
-    RACKSPACE_KEY_FILENAME:[
-      child_job_value:'${RACKSPACE_KEY_FILENAME}',
-      multijob_value: '~/.ssh/id_rsa',
-      description:'Full path to the Rackspace key-pair to use'],
+  RACKSPACE_KEY_FILENAME:[
+    child_job_value:'${RACKSPACE_KEY_FILENAME}',
+    multijob_value: '~/.ssh/id_rsa',
+    description:'Full path to the Rackspace key-pair to use'],
 
-    RACKSPACE_PUBLIC_KEY_FILENAME: [
-      child_job_value:'${RACKSPACE_PUBLIC_KEY_FILENAME}',
-      multijob_value: '~/.ssh/id_rsa.pub',
-      description:'Full path to the Rackspace public key'],
+  RACKSPACE_PUBLIC_KEY_FILENAME: [
+    child_job_value:'${RACKSPACE_PUBLIC_KEY_FILENAME}',
+    multijob_value: '~/.ssh/id_rsa.pub',
+    description:'Full path to the Rackspace public key'],
 
-    OS_AUTH_SYSTEM:[
-      child_job_value:'${OS_AUTH_SYSTEM}',
-      multijob_value: 'rackspace',
-      description:'Openstack Authentication method'],
+  OS_AUTH_SYSTEM:[
+    child_job_value:'${OS_AUTH_SYSTEM}',
+    multijob_value: 'rackspace',
+    description:'Openstack Authentication method'],
 
-    OS_AUTH_URL:[
-      child_job_value:'${OS_AUTH_URL}',
-      multijob_value: 'https://identity.api.rackspacecloud.com/v2.0/',
-      description:'Keystone URL'],
+  OS_AUTH_URL:[
+    child_job_value:'${OS_AUTH_URL}',
+    multijob_value: 'https://identity.api.rackspacecloud.com/v2.0/',
+    description:'Keystone URL'],
 
-    OS_NO_CACHE:[
-      child_job_value:'${OS_NO_CACHE}',
-      multijob_value: '1',
-      description:''],
-  ]
-}
+  OS_NO_CACHE:[
+    child_job_value:'${OS_NO_CACHE}',
+    multijob_value: '1',
+    description:''],
+]
 
 // GCE parameters
-def gce_parameters = {
-  return [
-    GCE_PROJECT: [
-      child_job_value:'${GCE_PROJECT}',
-      multijob_value: 'FILL_ME_IN',
-      description:''],
+def gce_parameters = [
+  GCE_PROJECT: [
+    child_job_value:'${GCE_PROJECT}',
+    multijob_value: 'FILL_ME_IN',
+    description:''],
 
-    GCE_ZONE: [
-      child_job_value:'${GCE_ZONE}',
-      multijob_value: 'FILL_ME_IN',
-      description:''],
+  GCE_ZONE: [
+    child_job_value:'${GCE_ZONE}',
+    multijob_value: 'FILL_ME_IN',
+    description:''],
 
-    GCE_PUBLIC_KEY: [
-      child_job_value:'${GCE_PUBLIC_KEY}',
-      multijob_value: 'FILL_ME_IN',
-      description:''],
+  GCE_PUBLIC_KEY: [
+    child_job_value:'${GCE_PUBLIC_KEY}',
+    multijob_value: 'FILL_ME_IN',
+    description:''],
 
-    GCE_PRIVATE_KEY: [
-      child_job_value:'${GCE_PRIVATE_KEY}',
-      multijob_value: 'FILL_ME_IN',
-      description:''],
-  ]
-}
+  GCE_PRIVATE_KEY: [
+    child_job_value:'${GCE_PRIVATE_KEY}',
+    multijob_value: 'FILL_ME_IN',
+    description:''],
+]
 
 // parameters that are common to every job
-def common_parameters = {
-  return [
-    TRIGGERED_BRANCH:[
-      child_job_value:'${RECONFIGURE_BRANCH}',
-      multijob_value: '${RECONFIGURE_BRANCH}',
-      description:'Branch that triggered this job'] +
+def common_parameters = [
+  TRIGGERED_BRANCH:[
+    child_job_value:'${RECONFIGURE_BRANCH}',
+    multijob_value: '${RECONFIGURE_BRANCH}',
+    description:'Branch that triggered this job'] +
 
-      aws_parameters +
-      rackspace_parameters +
-      gce_parameters
-  ]
-}
+    aws_parameters +
+    rackspace_parameters +
+    gce_parameters
+]
 
 // parameters for the child jobs
 def child_job_parameters(cloud, distribution, region) {
