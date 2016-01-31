@@ -283,50 +283,36 @@ for (cloud in on_clouds.keySet()) {
 // generate our multijob
 job_name = dashProject + '/' + dashBranchName + '/' + '__main_multijob'
 
-
 multiJob(job_name) {
+  configure { project->
+    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+        'name'('AWS_SECRET_ACCESS_KEY')
+        'description'('AWS Secret Key')
+        'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
+      }
 
-  configure { project ->
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' / 'hudson.model.PasswordParameterDefinition'() {
-      'name'('AWS_ACCESS_KEY_ID')
-      'description'('AWS Access Key ID')
-      'defaultValue'('FILL ME IN')
+    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+        'name'('OS_PASSWORD')
+        'description'('Rackspace API Key')
+        'defaultValue'('${OS_PASSWORD}')
+      }
+
+    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
+        'name'('GCE_PRIVATE_KEY')
+        'description'('GCE PRIVATE KEY')
+        'defaultValue'('${GCE_PRIVATE_KEY}')
     }
   }
-
-  configure { project ->
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' / 'hudson.model.PasswordParameterDefinition'() {
-      'name'('AWS_SECRET_ACCESS_KEY')
-      'description'('AWS Secret Key')
-      'defaultValue'('FILL ME IN')
-    }
-  }
-
-
-  configure { project ->
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' / 'hudson.model.PasswordParameterDefinition'() {
-      'name'('OS_USERNAME')
-      'description'('Rackspace Username')
-      'defaultValue'('FILL ME IN')
-    }
-  }
-
-  configure { project ->
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' / 'hudson.model.PasswordParameterDefinition'() {
-      'name'('OS_PASSWORD')
-      'description'('Rackspace API Key')
-      'defaultValue'('FILL ME IN')
-    }
-  }
-
 
   parameters {
     stringParam("TRIGGERED_BRANCH", "${RECONFIGURE_BRANCH}",
                   "Branch that triggered this job" )
 
+    stringParam("AWS_ACCESS_KEY_ID", 'FILL ME IN')
     stringParam("AWS_KEY_FILENAME", '~/.ssh/id_rsa')
     stringParam("AWS_KEY_PAIR", 'jenkins-slave')
 
+    stringParam("OS_USERNAME", 'FILL ME IN')
     stringParam("OS_TENANT_NAME", '929000')
     stringParam("OS_NO_CACHE", '1')
     stringParam("RACKSPACE_KEY_PAIR", 'jenkins-slave')
@@ -337,7 +323,6 @@ multiJob(job_name) {
 
     stringParam("GCE_PROJECT", "FILL_ME_IN")
     stringParam("GCE_PUBLIC_KEY", "FILL_ME_IN")
-    stringParam("GCE_PRIVATE_KEY", "FILL_ME_IN")
   }
 
   wrappers {
