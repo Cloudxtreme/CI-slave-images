@@ -70,26 +70,22 @@ to be created.
 
 def escape_name(name) {
     /*
-        Escape a name to make it suitable for use in a path.
-        :param unicode name: the name to escape.
-        :return unicode: the escaped name.
+      Escape a name to make it suitable for use in a path.
+      :param unicode name: the name to escape.
+      :return unicode: the escaped name.
     */
     return name.replace('/', '-')
 }
 
-def full_job_name(dashProject, dashBranchName, job_name) {
-    /*
-        Return the full job name (url path) given the constituent parts
-        :param unicode dashProject: the name of the top-level project,
-            escaped for use in a path.
-        :param unicode dashBranchName: the name of the branch,
-            escaped for use in a path.
-        :param unicode job_name: the sub-task name,
-            escaped for use in a path.
-        :return unicode: the full name
-    */
-    return folder_name(dashProject, dashBranchName) + "/${job_name}"
+def full_job_name(dashProject, dashBranchName, cloud, region, distribution) {
+  /*
+    Return the full project name for a particular cloud, region and distro
+  */
+  return dashProject + '/' + dashBranchName + '/' + 'run_' +
+    cloud + '_' + region + '_' + distribution
 }
+
+// list of regions and distributions
 def on_clouds = [
   ec2:[regions: ['eu-central-1',
                  'ap-southeast-1',
@@ -118,9 +114,6 @@ def with_steps = hashbang +
                  clone_segredos +
                  run_fabric
 
-// job timeout
-def timeout = 90
-
 // Jenkins Slave type
 def on_label = 'aws-centos-7-T2Medium_32_executors'
 
@@ -132,6 +125,9 @@ def with_views = [
 
   on_rackspace:[description: 'All Rackspace Jobs',
                 regex: '(.*_(?i)rackspace_.*.*)' ],
+
+  on_gce:[description: 'All GCE Jobs',
+                regex: '(.*_(?i)gce_.*.*)' ],
 
   on_centos_7:[description: 'All Centos Jobs',
                regex: '(.*_(?i)Centos7)' ],
@@ -178,7 +174,6 @@ def jobs_common_parameters = [
 ]
 
 
-
 dashBranchName = escape_name("${RECONFIGURE_BRANCH}")
 
 dashProject = escape_name(github_project)
@@ -219,8 +214,11 @@ for (cloud in on_clouds.keySet()) {
 
     for (distribution in values['distributions']) {
 
-      job_name = dashProject + '/' + dashBranchName + '/' + 'run_' +
-        cloud + '_' + region + '_' + distribution
+      job_name = full_job_name(dashProject,
+                               dashBranchName,
+                               cloud,
+                               region,
+                               distribution)
 
       job(job_name) {
         parameters {
@@ -356,8 +354,11 @@ multiJob(job_name) {
 
           for (distribution in values['distributions']) {
 
-            job_name = dashProject + '/' + dashBranchName + '/' + 'run_' +
-              cloud + '_' + region + '_' + distribution
+            job_name = full_job_name(dashProject,
+                                     dashBranchName,
+                                     cloud,
+                                     region,
+                                     distribution)
 
             phaseJob(job_name) {
               killPhaseCondition("NEVER")
