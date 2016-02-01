@@ -173,6 +173,30 @@ def jobs_common_parameters = [
     default_value:'${GCE_PUBLIC_KEY}', description:''],
 ]
 
+// Password parameters, these will be encrypted in the UI
+
+Closure job_password_parameters() {
+  return {
+    it / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition' {
+      'name'('AWS_SECRET_ACCESS_KEY')
+      'description'('AWS Secret Key')
+      'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
+    }
+
+    it / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition' {
+      'name'('OS_PASSWORD')
+      'description'('Rackspace API Key')
+      'defaultValue'('${OS_PASSWORD}')
+    }
+
+    it / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition' {
+      'name'('GCE_PRIVATE_KEY')
+      'description'('GCE private key')
+      'defaultValue'('${GCE_PRIVATE_KEY}')
+    }
+  }
+}
+
 
 dashBranchName = escape_name("${RECONFIGURE_BRANCH}")
 
@@ -222,25 +246,7 @@ for (cloud in on_clouds.keySet()) {
 
       job(job_name) {
         parameters {
-          configure { project->
-            project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-                'name'('AWS_SECRET_ACCESS_KEY')
-                'description'('AWS Secret Key')
-                'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
-              }
-
-            project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-                'name'('OS_PASSWORD')
-                'description'('Rackspace API Key')
-                'defaultValue'('${OS_PASSWORD}')
-              }
-
-            project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-                'name'('GCE_PRIVATE_KEY')
-                'description'('GCE PRIVATE KEY')
-                'defaultValue'('${GCE_PRIVATE_KEY}')
-            }
-          }
+          configure job_password_parameters()
 
           jobs_common_parameters.each { k, v ->
             stringParam(k, v.default_value)
@@ -295,25 +301,7 @@ for (cloud in on_clouds.keySet()) {
 job_name = dashProject + '/' + dashBranchName + '/' + '__main_multijob'
 
 multiJob(job_name) {
-  configure { project->
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-        'name'('AWS_SECRET_ACCESS_KEY')
-        'description'('AWS Secret Key')
-        'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
-      }
-
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-        'name'('OS_PASSWORD')
-        'description'('Rackspace API Key')
-        'defaultValue'('${OS_PASSWORD}')
-      }
-
-    project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-        'name'('GCE_PRIVATE_KEY')
-        'description'('GCE PRIVATE KEY')
-        'defaultValue'('${GCE_PRIVATE_KEY}')
-    }
-  }
+  configure job_password_parameters()
 
   parameters {
     stringParam("TRIGGERED_BRANCH", "${RECONFIGURE_BRANCH}",
