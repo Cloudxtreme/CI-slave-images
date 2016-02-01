@@ -156,13 +156,12 @@ Updating Jenkins to use the new images:
    grep the AWS AMIs from the log:
 
     grep Image: fabbing.it.log
-    ami ami-nnnnnnnn Image:ami-nnnnnnnn
-
+    created server image: ami-nnnnnnnn
 
    And The Rackspace AMIs:
 
-    grep "finished image" fabbing.it.log
-    finished image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
+    grep "created server image" fabbing.it.log
+    created server image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
 
 
 3. Clone the ci-platform and segredos git repositories:
