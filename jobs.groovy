@@ -352,25 +352,7 @@ multiJob(job_name) {
               killPhaseCondition("NEVER")
               currentJobParameters(true)
               parameters {
-                configure { project->
-                  project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-                      'name'('AWS_SECRET_ACCESS_KEY')
-                      'description'('AWS Secret Key')
-                      'defaultValue'('${AWS_SECRET_ACCESS_KEY}')
-                    }
-
-                  project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-                      'name'('OS_PASSWORD')
-                      'description'('Rackspace API Key')
-                      'defaultValue'('${OS_PASSWORD}')
-                    }
-
-                  project / 'properties' / 'hudson.model.ParametersDefinitionProperty' / 'parameterDefinitions' << 'hudson.model.PasswordParameterDefinition'() {
-                      'name'('GCE_PRIVATE_KEY')
-                      'description'('GCE PRIVATE KEY')
-                      'defaultValue'('${GCE_PRIVATE_KEY}')
-                  }
-                }
+                configure job_password_parameters()
 
                 jobs_common_parameters.each { k, v ->
                   predefinedProp(k, v.default_value)
