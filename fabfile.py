@@ -191,6 +191,8 @@ def down():
                  region=region)
 
     if cloud == 'rackspace':
+        # rackspace doesn't provide a 'stop' method, it always terminates
+        # the instance.
         destroy()
 
     if cloud == 'gce':
