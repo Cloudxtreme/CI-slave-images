@@ -8,26 +8,35 @@
 
 
 import os
-import sys
 from datetime import datetime
 from fabric.api import task, env
+from pprint import PrettyPrinter
 
-from bookshelf.api_v1 import (status as f_status,
-                              up as f_up,
+from bookshelf.api_v1 import (up as f_up,
                               down as f_down,
-                              destroy as f_destroy,
-                              create_image as f_create_image,
-                              create_server as f_create_server)
+                              destroy as f_destroy)
 
-from bookshelf.api_v1 import (is_there_state,
-                              load_state_from_disk,
-                              ssh_session)
 
-from lib.mycookbooks import (ec2,
-                             rackspace,
-                             get_cloud_environment,
-                             check_for_missing_environment_variables,
-                             segredos)
+from bookshelf.api_v2.ec2 import (
+    up_ec2,
+    down_ec2,
+    destroy_ec2,
+    create_ami
+)
+
+from bookshelf.api_v2.rackspace import (
+    create_rackspace_image,
+    destroy_rackspace
+)
+
+from bookshelf.api_v2.logging_helpers import log_green, log_red
+
+from bookshelf.api_v1 import (ssh_session, create_gce_image)
+
+from lib.mycookbooks import (load_config,
+                             cloud_region_distro_config,
+                             connect_to_cloud_provider,
+                             create_new_vm)
 
 
 from lib.bootstrap import (bootstrap_jenkins_slave_centos7,
@@ -36,213 +45,190 @@ from lib.bootstrap import (bootstrap_jenkins_slave_centos7,
 from tests.acceptance import acceptance_tests
 
 
+@task(default=True)
+def help():
+    """ help """
+    print("""
+        usage: fab <action>[:arguments] <action>[:arguments]
+
+        # shows this page
+        $ fab help
+
+        # boots an existing instance
+        $ fab up
+
+        # creates a new instance
+        $ fab cloud:ec2|rackspace|gce region:us-west-2 distribution:centos7 up
+
+        # installs packages on an existing instance
+        $ fab bootstrap
+
+        # creates a new ami
+        $ fab create_image
+
+        # destroy the box
+        $ fab destroy
+
+        # power down the box
+        $ fab down
+
+        # ssh to the instance
+        $ fab ssh
+
+        # execute a command on the instance
+        $ fab ssh:'ls -l'
+
+        # run acceptance tests against new instance
+        $ fab tests
+
+        The following environment variables must be set:
+
+        For AWS:
+        http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
+
+        # AWS_ACCESS_KEY_ID
+        # AWS_KEY_FILENAME (the full path to your private key file)
+        # AWS_KEY_PAIR (the KEY_PAIR to use)
+        # AWS_SECRET_ACCESS_KEY
+        # AWS_ACCESS_REGION (optional)
+        # AWS_AMI (optional)
+        # AWS_INSTANCE_TYPE (optional)
+
+        For Rackspace:
+        http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
+
+        # OS_USERNAME
+        # OS_TENANT_NAME
+        # OS_PASSWORD
+        # OS_NO_CACHE
+        # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+        # RACKSPACE_KEY_FILENAME (the full path to your private key file)
+        # OS_AUTH_SYSTEM (optional)
+        # OS_AUTH_URL (optional)
+        # OS_REGION_NAME (optional)
+
+        For Google Compute Engine (GCE):
+        # GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
+        # GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
+        # GCE_PROJECT (The GCE project to create the image in)
+        # GCE_ZONE (The GCE zone to use to make the image)
+        # GCE_MACHINE_TYPE (The machine type to use to make the image,
+            defaults to n1-standard-2)
+
+        Metadata state is stored locally in .state.json.
+
+        config.yaml contains a list of default configuration parameters.
+          """)
+
+
 @task
 def create_image():
-    """ create ami/image for either AWS or Rackspace """
+    """ create ami/image for either AWS, Rackspace or GCE """
     (year, month, day, hour, mins,
      sec, wday, yday, isdst) = datetime.utcnow().timetuple()
     date = "%s%s%s%s%s" % (year, month, day, hour, mins)
 
-    data = load_state_from_disk()
-    cloud_type = data['cloud_type']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_name = C[cloud_type][distribution]['instance_name']
-    description = C[cloud_type][distribution]['description']
+    cloud, region, distro, k = cloud_region_distro_config()
+    connect_to_cloud_provider()
 
-    f_create_image(cloud=cloud_type,
-                   region=data['region'],
-                   access_key_id=access_key_id,
-                   secret_access_key=secret_access_key,
-                   instance_id=data['id'],
-                   name=instance_name + "_" + date,
-                   description=description)
+    if cloud == 'ec2':
+        image_id = create_ami(connection=env.connection,
+                              region=region,
+                              instance_id=env.config['instance_id'],
+                              name=k['instance_name'] + date,
+                              description=k['description'])
+
+    if cloud == 'rackspace':
+        image_id = create_rackspace_image(connection=env.connection,
+                                          server_id=env.config['instance_id'],
+                                          name=k['instance_name'] + date,
+                                          description=k['description'])
+
+    if cloud == 'gce':
+        create_gce_image(description=k['description'],
+                         project=k['project'],
+                         instance_name=k['instance_name'] + date,
+                         name=k['description'])
+
+    log_green('created server image: %s' % image_id)
 
 
 @task
 def destroy():
     """ destroy an existing instance """
-    data = load_state_from_disk()
-    cloud_type = data['cloud_type']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    region = data['region']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
-    env.user = data['username']
-    env.key_filename = C[cloud_type][distribution]['key_filename']
+    cloud, region, distro, k = cloud_region_distro_config()
+    connect_to_cloud_provider()
 
-    f_destroy(cloud=cloud_type,
-              region=region,
-              instance_id=instance_id,
-              access_key_id=access_key_id,
-              secret_access_key=secret_access_key)
-
-
-@task
-def down(cloud=None):
-    """ halt an existing instance """
-    data = load_state_from_disk()
-    region = data['region']
-    cloud_type = data['cloud_type']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
-    env.key_filename = C[cloud_type][distribution]['key_filename']
-
-    if data['cloud_type'] == 'ec2':
-        ec2()
-    if data['cloud_type'] == 'rackspace':
-        rackspace()
-    f_down(cloud=cloud_type,
-           instance_id=instance_id,
-           region=region,
-           access_key_id=access_key_id,
-           secret_access_key=secret_access_key)
-
-
-@task(default=True)
-def help():
-    """ help """
-    print("""
-          usage: fab <action>[:arguments] <action>[:arguments]
-
-            # shows this page
-            $ fab help
-
-            # does the whole thing in one go
-            $ fab it:cloud=[ec2|rackspace],distribution=[centos7|ubuntu14.04]
-
-            # boots an existing instance
-            $ fab up
-
-            # creates a new instance
-            $ fab up:cloud=<ec2|rackspace>,distribution=<centos7|ubuntu14.04>
-
-            # installs packages on an existing instance
-            $ fab bootstrap:distribution=<centos7|ubuntu14.04>
-
-            # creates a new ami
-            $ fab create_image
-
-            # destroy the box
-            $ fab destroy
-
-            # power down the box
-            $ fab down
-
-            # ssh to the instance
-            $ fab ssh
-
-            # execute a command on the instance
-            $ fab ssh:'ls -l'
-
-            # run acceptance tests against new instance
-            $ fab tests
-
-            The following environment variables must be set:
-
-            For AWS:
-            http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
-
-            # AWS_ACCESS_KEY_ID
-            # AWS_KEY_FILENAME (the full path to your private key file)
-            # AWS_KEY_PAIR (the KEY_PAIR to use)
-            # AWS_SECRET_ACCESS_KEY
-            # AWS_ACCESS_REGION (optional)
-            # AWS_AMI (optional)
-            # AWS_INSTANCE_TYPE (optional)
-
-            For Rackspace:
-            http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
-
-            # OS_USERNAME
-            # OS_TENANT_NAME
-            # OS_PASSWORD
-            # OS_NO_CACHE
-            # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
-            # RACKSPACE_KEY_FILENAME (the full path to your private key file)
-            # OS_AUTH_SYSTEM (optional)
-            # OS_AUTH_URL (optional)
-            # OS_REGION_NAME (optional)
-
-            metadata state is stored locally in state.json.
-          """)
-
-
-@task
-def it(cloud, distribution):
-    """ runs the full stack
-
-    :param string cloud: The cloud type to use 'ec2', 'rackspace'
-    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
-    """
     if cloud == 'ec2':
-        ec2()
-    if cloud == 'rackspace':
-        rackspace()
+        destroy_ec2(connection=env.connection,
+                    region=region,
+                    instance_id=env.config['instance_id'])
+        os.unlink('.state.json')
 
-    up(cloud=cloud, distribution=distribution)
-    bootstrap(distribution)
-    tests()
-    create_image()
-    destroy()
+    if cloud == 'rackspace':
+        destroy_rackspace(connection=env.connection,
+                          region=region,
+                          instance_id=env.config['instance_id'])
+        os.unlink('.state.json')
+
+    if cloud == 'gce':
+        f_destroy(cloud='gce',
+                  zone=k['region'],
+                  project=k['project'],
+                  disk_name=env.config['instance_name'])
+        os.unlink('.state.json')
 
 
 @task
-def bootstrap(distribution=None):
+def down():
+    """ halt an existing instance """
+    cloud, region, distro, k = cloud_region_distro_config()
+    connect_to_cloud_provider()
+
+    if cloud == 'ec2':
+        down_ec2(connection=env.connection,
+                 instance_id=env.config['instance_id'],
+                 region=region)
+
+    if cloud == 'rackspace':
+        # rackspace doesn't provide a 'stop' method, it always terminates
+        # the instance.
+        destroy()
+
+    if cloud == 'gce':
+        f_down(cloud=cloud,
+               zone=k['region'],
+               project=k['project'],
+               instance_name=env.config['instance_name'])
+
+
+@task
+def bootstrap():
     """ bootstraps an existing running instance
 
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
 
-    # read distribution from state file
-    data = load_state_from_disk()
-    cloud_type = data['cloud_type']
-    env.user = data['username']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    env.key_filename = C[cloud_type][distribution]['key_filename']
+    cloud, region, distro, k = cloud_region_distro_config()
+    env.user = k['username']
 
-    # are he just doing a 'fab bootstrap' ?
-    # then find out our distro from our state file
-    if (distribution is None):
-        distribution = data['os_release']['ID'] + \
-            data['os_release']['VERSION_ID']
-
-    if distribution == 'centos7':
+    if 'centos7' in distro:
         bootstrap_jenkins_slave_centos7()
 
-    if 'ubuntu14.04' in distribution:
+    if 'ubuntu14' in distro:
         bootstrap_jenkins_slave_ubuntu14()
 
 
 @task
 def status():
     """ returns current status of the instance """
-    data = load_state_from_disk()
-    cloud_type = data['cloud_type']
-    username = data['username']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    region = data['region']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
-    env.user = data['username']
-    env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    if data['cloud_type'] == 'ec2':
-        ec2()
-    if data['cloud_type'] == 'rackspace':
-        rackspace()
+    cloud, region, distro, k = cloud_region_distro_config()
 
-    f_status(cloud=cloud_type,
-             region=region,
-             instance_id=instance_id,
-             access_key_id=access_key_id,
-             secret_access_key=secret_access_key,
-             username=username)
+    data = env.config
+    data['username'] = k['username']
+    pp = PrettyPrinter(indent=4)
+    pp.pprint(data)
 
 
 @task
@@ -251,265 +237,77 @@ def ssh(*cli):
 
     :param string cli: the commands to run on the host
     """
+    cloud, region, distro, k = cloud_region_distro_config()
 
-    data = load_state_from_disk()
-    cloud_type = data['cloud_type']
-    ip_address = data['ip_address']
-    username = data['username']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    key_filename = C[cloud_type][distribution]['key_filename']
+    state = env.config
 
-    ssh_session(key_filename,
-                username,
-                ip_address,
+    ssh_session(key_filename=k['key_filename'],
+                username=state['username'],
+                ip_address=state['public_dns_name'],
                 *cli)
 
 
 @task
 def tests():
     """ run tests against an existing instance """
-    data = load_state_from_disk()
-    cloud_type = data['cloud_type']
-    username = data['username']
-    distribution = data['distribution'] + data['os_release']['VERSION_ID']
-    region = data['region']
-    access_key_id = C[cloud_type][distribution]['access_key_id']
-    secret_access_key = C[cloud_type][distribution]['secret_access_key']
-    instance_id = data['id']
-    env.user = data['username']
-    env.key_filename = C[cloud_type][distribution]['key_filename']
 
-    if data['cloud_type'] == 'ec2':
-        ec2()
-    if data['cloud_type'] == 'rackspace':
-        rackspace()
+    cloud, region, distro, k = cloud_region_distro_config()
 
-    acceptance_tests(cloud=cloud_type,
-                     region=region,
-                     instance_id=instance_id,
-                     access_key_id=access_key_id,
-                     secret_access_key=secret_access_key,
-                     distribution=distribution,
-                     username=username)
+    acceptance_tests(distribution=distro)
 
 
 @task
-def up(cloud=None, distribution=None):
+def up():
     """ boots a new instance on amazon or rackspace
-
-    :param string cloud: The cloud type to use 'ec2', 'rackspace'
-    :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
+    cloud = env.config['cloud']
+    region = env.config['region']
+    distro = env.config['distribution']
+    k = env.global_config[cloud]['regions'][region]['distribution'][distro]
 
-    if is_there_state():
-        data = load_state_from_disk()
-        cloud_type = data['cloud_type']
-        username = data['username']
-        distribution = data['distribution'] + data['os_release']['VERSION_ID']
-        region = data['region']
-        access_key_id = C[cloud_type][distribution]['access_key_id']
-        secret_access_key = C[cloud_type][distribution]['secret_access_key']
-        instance_id = data['id']
-        env.user = data['username']
-        env.key_filename = C[cloud_type][distribution]['key_filename']
-
-        if data['cloud_type'] == 'ec2':
-            ec2()
-        if data['cloud_type'] == 'rackspace':
-            rackspace()
-
-        f_up(cloud=cloud_type,
-             region=region,
-             instance_id=instance_id,
-             access_key_id=access_key_id,
-             secret_access_key=secret_access_key,
-             username=username)
+    if not env.state:
+        create_new_vm()
     else:
-        env.user = C[cloud][distribution]['username']
-        env.key_filename = C[cloud][distribution]['key_filename']
+        connect_to_cloud_provider()
 
-        # no state file around, lets create a new VM
-        # and use defaults values we have in our config 'C' dictionary
-        f_create_server(cloud=cloud,
-                        region=C[cloud][distribution]['region'],
-                        access_key_id=C[cloud][distribution]['access_key_id'],
-                        secret_access_key=C[cloud][distribution][
-                            'secret_access_key'],
-                        distribution=distribution,
-                        disk_name=C[cloud][distribution]['disk_name'],
-                        disk_size=C[cloud][distribution]['disk_size'],
-                        ami=C[cloud][distribution]['ami'],
-                        key_pair=C[cloud][distribution]['key_pair'],
-                        instance_type=C[cloud][distribution]['instance_type'],
-                        instance_name=C[cloud][distribution]['instance_name'],
-                        username=C[cloud][distribution]['username'],
-                        security_groups=C[cloud][distribution][
-                            'security_groups'],
-                        tags=C[cloud][distribution]['tags'])
+        if cloud in ['ec2']:
+            up_ec2(connection=env.connection,
+                   region=region,
+                   instance_id=env.config['instance_id'])
+
+        if cloud in ['rackspace']:
+            log_red('fab up operations not implemented for Rackspace ')
+
+        if cloud == 'gce':
+            f_up(cloud='gce',
+                 project=k['project'],
+                 zone=k['region'],
+                 username=k['username'],
+                 machine_type=k['machine_type'],
+                 base_image_prefix=k['base_image_prefix'],
+                 base_image_project=k['base_image_project'],
+                 public_key=k['public_key'],
+                 instance_name=env.config['instance_name'],
+                 disk_name=env.config['instance_name'])
+
+
+@task
+def cloud(cloud_provider):
+    env.config['cloud'] = cloud_provider
+
+
+@task
+def distribution(linux_distro):
+    env.config['distribution'] = linux_distro
+
+
+@task
+def region(cloud_region):
+    env.config['region'] = cloud_region
 
 
 """
     ___main___
 """
-# is this a fab help ?
-if 'help' in sys.argv:
-    help()
-    exit(1)
 
-# make sure we have all the required variables available in the environment
-list_of_clouds = []
-
-# look up our state.json file, and load the cloud_type from there
-if is_there_state():
-    data = load_state_from_disk()
-    list_of_clouds.append(data['cloud_type'])
-else:
-    # no state.json, we expect to find a cloud='' option in our argv
-    list_of_clouds = get_cloud_environment()
-
-if not len(list_of_clouds):
-    # sounds like we are asking for a task that require cloud environment
-    # variables and we don't have them defined, let's inform the user what
-    # variables we are looking for.
-    help()
-
-# right, we have a 'cloud_type' in list_of_clouds, lets find out if the env
-# variables we need for that cloud have been defined.
-if not check_for_missing_environment_variables(list_of_clouds):
-    help()
-    exit(1)
-
-# retrieve some of the secrets from the segredos dict
-jenkins_plugin_dict = segredos()[
-    'env']['default']['jenkins']['clouds']['jclouds_plugin'][0]
-
-# soaks up the environment variables
-# AWS environment variables, see:
-# http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html#cli-environment
-if 'ec2' in list_of_clouds:
-    ec2_instance_type = os.getenv('AWS_INSTANCE_TYPE', 't2.medium')
-    ec2_key_filename = os.environ['AWS_KEY_FILENAME']  # path to ssh key
-    ec2_key_pair = os.environ['AWS_KEY_PAIR']
-    ec2_region = os.getenv('AWS_REGION', 'us-west-2')
-    ec2_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
-    ec2_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
-    ec2_key_filename = os.environ['AWS_KEY_FILENAME']
-
-# Rackspace environment variables, see:
-# http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
-if 'rackspace' in list_of_clouds:
-    rackspace_username = os.environ['OS_USERNAME']
-    rackspace_tenant_name = os.environ['OS_TENANT_NAME']
-    rackspace_password = os.environ['OS_PASSWORD']
-    rackspace_auth_url = os.getenv('OS_AUTH_URL',
-                                   'https://identity.api.rackspacecloud.com/'
-                                   'v2.0/')
-    rackspace_auth_system = os.getenv('OS_AUTH_SYSTEM', 'rackspace')
-    rackspace_region = os.getenv('OS_REGION_NAME', 'DFW')
-    rackspace_flavor = '1GB Standard Instance'
-    rackspace_key_pair = os.environ['RACKSPACE_KEY_PAIR']
-    rackspace_public_key = jenkins_plugin_dict['publicKey'][0]
-    rackspace_key_filename = os.environ['RACKSPACE_KEY_FILENAME']
-
-# We define a dictionary containing API secrets, disk sizes, base amis,
-# and other bits and pieces that we will use for creating a new EC2 or Rackspace
-# instance and authenticate over ssh.
-C = {}
-if 'ec2' in list_of_clouds:
-    C['ec2'] = {
-        'centos7': {
-            'ami': 'ami-c7d092f7',
-            'username': 'centos',
-            'disk_name': '/dev/sda1',
-            'disk_size': '48',
-            'instance_type': ec2_instance_type,
-            'key_pair': ec2_key_pair,
-            'region': ec2_region,
-            'secret_access_key': ec2_secret_access_key,
-            'access_key_id': ec2_access_key_id,
-            'security_groups': ['ssh'],
-            'instance_name': 'jenkins_slave_centos7_ondemand',
-            'description': 'jenkins_slave_centos7_ondemand',
-            'key_filename': ec2_key_filename,
-            'tags': {'name': 'jenkins_slave_centos7_ondemand'}
-        },
-        'ubuntu14.04': {
-            'ami': 'ami-87bea5b7',
-            'username': 'ubuntu',
-            'disk_name': '/dev/sda1',
-            'disk_size': '48',
-            'instance_type': ec2_instance_type,
-            'key_pair': ec2_key_pair,
-            'region': ec2_region,
-            'secret_access_key': ec2_secret_access_key,
-            'access_key_id': ec2_access_key_id,
-            'security_groups': ['ssh'],
-            'instance_name': 'jenkins_slave_ubuntu14_ondemand',
-            'description': 'jenkins_slave_ubuntu14_ondemand',
-            'key_filename': ec2_key_filename,
-            'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
-        }
-    }
-
-if 'rackspace' in list_of_clouds:
-    C['rackspace'] = {
-        'centos7': {
-            'ami': 'CentOS 7 (PVHVM)',
-            'username': 'root',
-            'disk_name': '',
-            'disk_size': '48',
-            'instance_type': rackspace_flavor,
-            'key_pair': rackspace_key_pair,
-            'region': rackspace_region,
-            'secret_access_key': rackspace_password,
-            'access_key_id': rackspace_username,
-            'security_groups': '',
-            'instance_name': 'jenkins_slave_centos7_ondemand',
-            'description': 'jenkins_slave_centos7_ondemand',
-            'public_key': rackspace_public_key,
-            'auth_system': rackspace_auth_system,
-            'tenant': rackspace_tenant_name,
-            'auth_url': rackspace_auth_url,
-            'key_filename': rackspace_key_filename,
-            'tags': {'name': 'jenkins_slave_centos7_ondemand'}
-        },
-        'ubuntu14.04': {
-            'ami': 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)',
-            'username': 'root',
-            'disk_name': '',
-            'disk_size': '48',
-            'instance_type': rackspace_flavor,
-            'key_pair': rackspace_key_pair,
-            'region': rackspace_region,
-            'secret_access_key': rackspace_password,
-            'access_key_id': rackspace_username,
-            'security_groups': '',
-            'instance_name': 'jenkins_slave_ubuntu14_ondemand',
-            'description': 'jenkins_slave_ubuntu14_ondemand',
-            'public_key': rackspace_public_key,
-            'auth_system': rackspace_auth_system,
-            'tenant': rackspace_tenant_name,
-            'auth_url': rackspace_auth_url,
-            'key_filename': rackspace_key_filename,
-            'tags': {'name': 'jenkins_slave_ubuntu14_ondemand'}
-        }
-    }
-
-# Modify some global Fabric behaviours:
-# Let's disable known_hosts, since on Clouds that behaviour can get in the
-# way as we continuosly destroy/create boxes.
-env.disable_known_hosts = True
-env.use_ssh_config = False
-env.eagerly_disconnect = True
-env.connection_attemtps = 5
-
-# We store the state in a local file as we need to keep track of the
-# ec2 instance id and ip_address so that we can run provision multiple times
-# By using some metadata locally about the VM we get a similar workflow to
-# vagrant (up, down, destroy, bootstrap).
-if not is_there_state():
-    pass
-else:
-    data = load_state_from_disk()
-    env.hosts = data['ip_address']
-    env.cloud = data['cloud_type']
+load_config()

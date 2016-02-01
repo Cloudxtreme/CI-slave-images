@@ -48,6 +48,22 @@ For Rackspace:
     * OS_NO_CACHE
 
 
+For Google Compute Engine:
+
+    * GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
+
+    * GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
+
+    * GCE_PROJECT (The GCE project to create the image in)
+
+    * GCE_ZONE (The GCE zone to use to make the image)
+
+    * GCE_MACHINE_TYPE (The machine type to use to make the image, defaults to
+                        n1-standard-2)
+
+
+
+
 create your virtualenv:
 
 ```
@@ -60,29 +76,50 @@ create your virtualenv:
 then execute as:
 
 ```
-    fab it:cloud=ec2,distribution=centos7
-    fab destroy
-    fab it:cloud=rackspace,distribution=ubuntu14.04
 
-    fab help
 
-    Available commands:
+  usage: fab <action>[:arguments] <action>[:arguments]
 
-        bootstrap     bootstraps an existing running instance
-        create_image  create ami/image for either AWS or Rackspace
-        destroy       destroy an existing instance
-        down          halt an existing instance
-        help          help
-        it            runs the full stack
-        ssh           opens an ssh connection to the instance
-        status        returns current status of the instance
-        tests         run tests against an existing instance
-        up            boots a new instance on amazon or rackspace
+    # shows this page
+    $ fab help
 
+    # boots an existing instance
+    $ fab up
+
+    # creates a new instance
+    $ fab cloud:ec2|rackspace|gce region:us-west-2 distribution:centos7 up
+
+    # installs packages on an existing instance
+    $ fab bootstrap
+
+    # creates a new ami
+    $ fab create_image
+
+    # destroy the box
+    $ fab destroy
+
+    # power down the box
+    $ fab down
+
+    # ssh to the instance
+    $ fab ssh
+
+    # execute a command on the instance
+    $ fab ssh:'ls -l'
+
+    # run acceptance tests against new instance
+    $ fab tests
+
+    Metadata state is stored locally in .state.json.
+
+    config.yaml contains a list of default configuration parameters.
 ```
 
 The fab code should bootstrap an AWS/Rackspace instance,
 provision it and bake an image before deleting the original instance.
+
+On GCE it also bootstraps a GCE instance, but destroys the instance prior to
+constructing the image from the disk, as required by the GCE API.
 
 NOTE: if you get an:
 ```
@@ -108,26 +145,23 @@ Updating Jenkins to use the new images:
 
 1. Generate the new Cloud server images used by Jenkins:
 
-    fab it:cloud=ec2,distribution=centos7 \
-        it:cloud=ec2,distribution=ubuntu14.04 \
-        it:cloud=rackspace,distribution=centos7 \
-        it:cloud=rackspace,distribution=ubuntu14.04 | tee /tmp/fabbing.it.log
-
+    fab cloud:ec2 region:us-west-2 distribution:centos7 up
+    fab bootstrap
+    fab tests
+    fab create_image 2>&1 >> fabbing.it.log
+    fab destroy
 
 2. Gather the IDs for the different images:
 
    grep the AWS AMIs from the log:
 
     grep Image: fabbing.it.log
-    ami ami-nnnnnnnn Image:ami-nnnnnnnn
-    ami ami-nnnnnnnn Image:ami-nnnnnnnn
-
+    created server image: ami-nnnnnnnn
 
    And The Rackspace AMIs:
 
-    grep "finished image" fabbing.it.log
-    finished image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
-    finished image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
+    grep "created server image" fabbing.it.log
+    created server image: nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn
 
 
 3. Clone the ci-platform and segredos git repositories:
@@ -212,7 +246,3 @@ needs to be re-provisioned after your PR is accepted.
 
 
 9. Close the JIRA and its subtasks
-
-
-
-
