@@ -3,6 +3,7 @@
 
 from fabric.api import sudo, env, run
 from fabric.context_managers import settings, cd
+from fabric.operations import put
 from bookshelf.api_v1 import (add_epel_yum_repository,
                               add_usr_local_bin_to_path,
                               add_zfs_yum_repository,
@@ -118,6 +119,9 @@ def bootstrap(distribution):
         # when we sudo, we want to keep our original environment variables
         disable_env_reset_on_sudo()
 
+        # set up the suicide script
+        prepare_for_suicide()
+
         # some flocker acceptance tests fail when we don't have
         # a know_hosts file
         sudo("touch /root/.ssh/known_hosts")
@@ -179,7 +183,7 @@ def bootstrap(distribution):
 
         # installs python-pypy onto /opt/python-pypy/2.6.1 and symlinks it
         # to /usr/local/bin/pypy
-        install_python_pypy('2.6.1')
+        install_python_pypy('2.6.1')      
 
 
 def bootstrap_jenkins_slave_centos7():
@@ -202,6 +206,9 @@ def bootstrap_jenkins_slave_centos7():
         add_epel_yum_repository()
 
         install_centos_development_tools()
+
+        # set up the suicide script
+        prepare_for_suicide()
 
         # installs a bunch of required packages
         yum_install(packages=centos7_required_packages())
@@ -324,6 +331,9 @@ def bootstrap_jenkins_slave_ubuntu14():
         disable_env_reset_on_sudo()
 
         install_ubuntu_development_tools()
+
+        # set up the suicide script
+        prepare_for_suicide()
 
         # installs a bunch of required packages
         apt_install(packages=ubuntu14_required_packages())
@@ -476,3 +486,8 @@ def ubuntu14_required_packages():
             "nginx",
             "libsvn-perl",
             "ruby-dev"]
+
+def prepare_for_suicide():
+    put('scripts/slave-suicidio.sh', '/etc/init.d/slave-suicidio', use_sudo=True)
+    sudo("chmod -R 0600 /etc/init.d/slave-suicidio")
+    sudo("update-rc.d slave-suicidio defaults")  
