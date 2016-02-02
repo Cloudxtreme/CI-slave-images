@@ -1,5 +1,3 @@
-# vim: ai ts=2 sts=2 et sw=2 ft=yaml fdm=indent et foldlevel=0
-#
 # config.yaml
 
 # Common options to all regions
@@ -15,19 +13,20 @@ templates:
     security_groups: ['ssh']
 
   rackspace_common: &rackspace_common
-    username: 'root'
-    disk_name: ''
-    disk_size: '48'
-    instance_type: '1GB Standard Instance'
-    key_pair: <%= ENV['RACKSPACE_KEY_PAIR'] %>
-    key_filename: <%= ENV['RACKSPACE_KEY_FILENAME'] %>
-    public_key_filename: <%= ENV['RACKSPACE_PUBLIC_KEY_FILENAME'] %>
-    access_key_id: <%= ENV['OS_USERNAME'] %>
-    secret_access_key: <%= ENV['OS_PASSWORD'] %>
-    auth_system: <%= ENV['OS_AUTH_SYSTEM'] %>
-    auth_auth_url: <%= ENV['OS_AUTH_URL'] %>
-    tenant: <%= ENV['OS_TENANT_NAME'] %>
-    security_groups: ''
+    dog: mouse
+  #username: 'root'
+  #  disk_name: ''
+  #  disk_size: '48'
+  #  instance_type: '1GB Standard Instance'
+  #  key_pair: <%= ENV['RACKSPACE_KEY_PAIR'] %>
+  #  key_filename: <%= ENV['RACKSPACE_KEY_FILENAME'] %>
+  #  public_key_filename: <%= ENV['RACKSPACE_PUBLIC_KEY_FILENAME'] %>
+  #  access_key_id: <%= ENV['OS_USERNAME'] %>
+  #  secret_access_key: <%= ENV['OS_PASSWORD'] %>
+  #  auth_system: <%= ENV['OS_AUTH_SYSTEM'] %>
+  #  auth_auth_url: <%= ENV['OS_AUTH_URL'] %>
+  #  tenant: <%= ENV['OS_TENANT_NAME'] %>
+  #  security_groups: ''
 
   gce_common: &gce_common
     project: <%= ENV['GCE_PROJECT'] %>

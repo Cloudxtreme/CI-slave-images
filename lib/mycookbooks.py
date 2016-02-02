@@ -309,10 +309,10 @@ def load_config():
     env.state = False
 
     # slurp the yaml config file
-    try:
-        env.global_config = parse_config('config.yaml')['clouds']
-    except:
-        raise("Unable to parse config.yaml, see README")
+    #try:
+    env.global_config = parse_config('config.yaml')['clouds']
+    #except:
+        #raise("Unable to parse config.yaml, see README")
 
     # look up our state.json file, and override any settings found
     load_state_from_disk()
@@ -367,16 +367,21 @@ def create_new_vm():
         env.config['public_dns_name'] = instance.accessIPv4
 
     if cloud == 'gce':
-        f_up(cloud='gce',
-             project=k['project'],
-             zone=region,
-             username=k['username'],
-             machine_type=k['machine_type'],
-             base_image_prefix=k['base_image_prefix'],
-             base_image_project=k['base_image_project'],
-             public_key=k['public_key'],
-             instance_name=k['instance_name'],
-             disk_name=k['instance_name'])
+        print "SETTING USERNAME"
+        env.user = k['username']
+        env.key_filename = k['key_filename']
+        print env
+        f_up(
+            cloud='gce',
+            project=k['project'],
+            zone=region,
+            username=k['username'],
+            machine_type=k['machine_type'],
+            base_image_prefix=k['base_image_prefix'],
+            base_image_project=k['base_image_project'],
+            public_key=k['public_key'],
+            instance_name=k['instance_name']
+        )
 
         print(instance.__dict__)
         env.config['public_dns_name'] = instance.public_dns_name

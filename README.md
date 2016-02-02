@@ -50,6 +50,13 @@ For Rackspace:
 
 For Google Compute Engine:
 
+    * Either
+ 
+      * Run `gcloud auth login`
+
+      * Set GOOGLE_APPLICATION_CREDENTIALS to a json key file downloaded from
+        the GCE console to authenticate as a service account.
+
     * GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
 
     * GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)

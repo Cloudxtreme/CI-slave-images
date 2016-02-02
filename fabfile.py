@@ -279,6 +279,8 @@ def up():
             log_red('fab up operations not implemented for Rackspace ')
 
         if cloud == 'gce':
+            print "SETTING USERNAME"
+            env.user = k['username']
             f_up(cloud='gce',
                  project=k['project'],
                  zone=k['region'],
