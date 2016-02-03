@@ -380,7 +380,7 @@ def create_new_vm():
             base_image_prefix=k['base_image_prefix'],
             base_image_project=k['base_image_project'],
             public_key=k['public_key'],
-            instance_name=k['instance_name']
+            instance_name=None  # Instance name is a unique ID in GCE land.
         )
 
         print(instance.__dict__)
