@@ -52,7 +52,7 @@ For Google Compute Engine:
 
     * Either
  
-      * Run `gcloud auth login`
+      * Run `gcloud auth login` before you run this script.
 
       * Set GOOGLE_APPLICATION_CREDENTIALS to a json key file downloaded from
         the GCE console to authenticate as a service account.
