@@ -305,7 +305,7 @@ def up():
     if not has_state():
         instance = create_new_instance_from_config(cloud, distro)
     else:
-        instance = create_isntance_from_saved_state()
+        instance = create_instance_from_saved_state()
     save_state(instance)
 
 @task
