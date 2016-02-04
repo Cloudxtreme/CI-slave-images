@@ -8,6 +8,7 @@
 
 
 import os
+import json
 from datetime import datetime
 from fabric.api import task, env
 from pprint import PrettyPrinter
@@ -37,6 +38,7 @@ from lib.mycookbooks import (setup_fab_env,
                              parse_config,
                              has_state,
                              load_state,
+                             save_state,
                              connect_to_cloud_provider)
 
 
@@ -51,6 +53,7 @@ CLOUD_YAML_FILE = {
     'ec2': 'ec2.yaml',
     'rackspace': 'rackspace.yaml'
 }
+
 
 
 @task(default=True)
@@ -134,11 +137,12 @@ def get_config():
     if not has_state():
         raise Exception("Can't get a config without a state file")
     saved_state = load_state()
-    cloud = saved_state['cloud_type']
+    cloud = saved_state['cloud']
     config = parse_config(CLOUD_YAML_FILE[cloud])
     return config
 
-def create_new_intance_from_config(cloud, distro):
+
+def create_new_instance_from_config(cloud, distro):
     config = parse_config(CLOUD_YAML_FILE[cloud])
     if cloud == 'ec2':
         pass
@@ -146,49 +150,30 @@ def create_new_intance_from_config(cloud, distro):
         pass
     elif cloud == 'gce':
         env.user = config['username']
-        env.key_filename = config['public_key_filename']
+        env.key_filename = config['private_key_filename']
         return GCE.create_from_config(config, distro)
+
 
 def create_instance_from_saved_state():
     saved_state = load_state()
-    cloud = saved_state['cloud_type']
+    cloud = saved_state['cloud']
     config = parse_config(CLOUD_YAML_FILE[cloud])
     if cloud == 'gce':
         env.user = config['username']
-        env.key_filename = config['public_key_filename']
-        return GCE.create_from_saved_state(config, saved_state)
+        env.key_filename = config['private_key_filename']
+        instance = GCE.create_from_saved_state(config, saved_state['data'])
+        # bringing the instance up can change the IP address
+        # go ahead and re-save the state
+        save_state(instance)
+        return instance
 
 
 @task
 def create_image():
     """ create ami/image for either AWS, Rackspace or GCE """
-    # (year, month, day, hour, mins,
-    #  sec, wday, yday, isdst) = datetime.utcnow().timetuple()
-    # date = "%s%s%s%s%s" % (year, month, day, hour, mins)
-
-    # cloud, region, distro, k = cloud_region_distro_config()
-    # connect_to_cloud_provider()
-
-    # if cloud == 'ec2':
-    #     image_id = create_ami(connection=env.connection,
-    #                           region=region,
-    #                           instance_id=env.config['instance_id'],
-    #                           name=k['instance_name'] + date,
-    #                           description=k['description'])
-
-    # elif cloud == 'rackspace':
-    #     image_id = create_rackspace_image(connection=env.connection,
-    #                                       server_id=env.config['instance_id'],
-    #                                       name=k['instance_name'] + date,
-    #                                       description=k['description'])
-
-    # elif cloud == 'gce':
-    #     create_gce_image(description=k['description'],
-    #                      project=k['project'],
-    #                      instance_name=k['instance_name'] + date,
-    #                      name=k['description'])
     datestr = datetime.utcnow().strftime("%Y%m%d%H%M")
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
+    save_state(instance)
     image_name = "{}-{}".format(instance.description, datestr)
     instance.create_image(image_name)
 
@@ -220,14 +205,14 @@ def destroy():
     #               disk_name=env.config['instance_name'])
     #     os.unlink('.state.json')
 
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
     instance.destroy()
     os.unlink('.state.json')
 
 @task
 def down():
     """ halt an existing instance """
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
     instance.down()
 
     # cloud, region, distro, k = cloud_region_distro_config()
@@ -256,7 +241,7 @@ def bootstrap():
 
     #config, state = get_config_and_state()
     config = get_config()
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
 
     # distro = state['distro']
     # env.user = config['username']
@@ -291,7 +276,8 @@ def ssh(*cli):
     #config, state = get_config_and_state()
     config = get_config()
 
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
+
 
     ssh_session(key_filename=config['public_key_filename'],
                 username=config['username'],
@@ -317,10 +303,10 @@ def up():
     distro = env.config['distribution']
 
     if not has_state():
-        create_from_config(cloud, distro)
+        instance = create_new_instance_from_config(cloud, distro)
     else:
-        create_from_saved_state()
-
+        instance = create_isntance_from_saved_state()
+    save_state(instance)
 
 @task
 def cloud(cloud_provider):

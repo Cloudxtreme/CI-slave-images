@@ -49,6 +49,8 @@ from bookshelf.api_v2.rackspace import (
     connect_to_rackspace,
 )
 
+STATE_FILE_NAME = '.state.json'
+
 
 def add_user_to_docker_group(distro):
     """ make sure the user running jenkins is part of the docker group """
@@ -95,8 +97,7 @@ def check_for_missing_environment_variables(cloud_type=None):
                                 'RACKSPACE_KEY_FILENAME',
                                 'OS_NO_CACHE'],
 
-                  'gce': ['GCE_PRIVATE_KEY',
-                          'GCE_PUBLIC_KEY'],
+                  'gce': ['GCE_PUBLIC_KEY'],
                   }
 
     for cloud in cloud_type:
@@ -318,18 +319,29 @@ def setup_fab_env():
 
 
 def has_state():
-    return os.path.isfile('.state.json')
+    return os.path.isfile(STATE_FILE_NAME)
 
 def load_state():
-    with open('.state.json') as data_file:
+    with open(STATE_FILE_NAME) as data_file:
         return json.load(data_file)
 
-def load_state_from_disk():
-    """ loads state.json file into fabric.env """
-    if has_state():
-        env.state = True
-        with open('.state.json') as data_file:
-            env.config = json.load(data_file)
+def save_state(instance):
+    instance_data = instance.get_state()
+    data = {
+        'cloud': instance.cloud,
+        'data': instance_data
+    }
+    with open(STATE_FILE_NAME, 'w') as f:
+        json.dump(data, f)
+
+
+# def load_state_from_disk():
+#     """ loads state.json file into fabric.env """
+#     if has_state():
+#         env.state = True
+#         with open(STATE_FILE_NAME) as data_file:
+
+#             env.config = json.load(data_file)
 
 
 # def create_new_vm(cloud, distro, config):
