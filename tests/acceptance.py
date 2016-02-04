@@ -19,10 +19,10 @@ from lib.bootstrap import (local_docker_images,
                            ubuntu14_required_packages,
                            centos7_required_packages)
 
-from lib.mycookbooks import cloud_region_distro_config
+#from lib.mycookbooks import cloud_region_distro_config
 
 
-def acceptance_tests(distribution):
+def acceptance_tests(distribution, config):
     """ proxy function that calls acceptance tests for speficic OS
 
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
@@ -31,9 +31,9 @@ def acceptance_tests(distribution):
     ec2_host = "%s@%s" % (env.config['username'],
                           env.config['public_dns_name'])
 
-    cloud, region, distro, k = cloud_region_distro_config()
+    #cloud, region, distro, k = cloud_region_distro_config()
     env.host_string = ec2_host
-    env.key_filename = k['key_filename']
+    env.key_filename = config['key_filename']
 
     # run common tests for all platforms
     acceptance_tests_common_tests_for_flocker(distribution)

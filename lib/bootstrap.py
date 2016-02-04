@@ -38,24 +38,21 @@ from lib.mycookbooks import (symlink_sh_to_bash,
                              install_docker,
                              local_docker_images,
                              upgrade_kernel_and_grub,
-                             cloud_region_distro_config,
                              install_nginx)
 
 
-def bootstrap_jenkins_slave_centos7():
+def bootstrap_jenkins_slave_centos7(config, instance):
     # ec2 hosts get their ip addresses using dhcp, we need to know the new
     # ip address of our box before we continue our provisioning tasks.
     # we load the state from disk, and store the ip in ec2_host#
-    ec2_host = "%s@%s" % (env.config['username'],
-                          env.config['public_dns_name'])
-
-    cloud, region, distro, k = cloud_region_distro_config()
-
-    with settings(host_string=ec2_host, key_filename=k['key_filename']):
+    cloud_host = "%s@%s" % (config['username'], instance.public_dns_name)
+    distro = instance.distro
+    with settings(host_string=cloud_host,
+                  key_filename=config['public_key_filename']):
         install_os_updates(distribution='centos7')
 
         # make sure our umask is set to 022
-        fix_umask()
+        fix_umask(config)
 
         # ttys are tricky, lets make sure we don't need them
         disable_requiretty_on_sudoers()
@@ -81,7 +78,7 @@ def bootstrap_jenkins_slave_centos7():
         # so, lets reboot and make sure we do.
         with settings(warn_only=True):
             reboot()
-        wait_for_ssh(env.config['public_dns_name'])
+        wait_for_ssh(instance.public_dns_name)
 
         # install the latest ZFS from testing
         add_zfs_yum_repository()
@@ -92,23 +89,23 @@ def bootstrap_jenkins_slave_centos7():
 
         # note: will reboot the host for us if selinux is disabled
         enable_selinux()
-        wait_for_ssh(env.config['public_dns_name'])
+        wait_for_ssh(instance.public_dns_name)
 
     # these are likely to happen after a reboot
-    ec2_host = "%s@%s" % (env.config['username'],
-                          env.config['public_dns_name'])
-    with settings(host_string=ec2_host, key_filename=k['key_filename']):
+
+    with settings(host_string=cloud_host,
+                  key_filename=config['public_key_filename']):
         # brings up the firewall
         enable_firewalld_service()
 
         # we create a docker group ourselves, as we want to be part
         # of that group when the daemon first starts.
         create_docker_group()
-        add_user_to_docker_group()
+        add_user_to_docker_group(distro)
         install_docker()
 
         # ubuntu uses dash which causes jenkins jobs to fail
-        symlink_sh_to_bash()
+        symlink_sh_to_bash(distro)
 
         # some flocker acceptance tests fail when we don't have
         # a know_hosts file
@@ -152,7 +149,7 @@ def bootstrap_jenkins_slave_centos7():
         # nginx is used during the acceptance tests, the VM built by
         # flocker provision will connect to the jenkins slave on p 80
         # and retrieve the just generated rpm/deb file
-        install_nginx()
+        install_nginx(config['username'])
 
         # /etc/slave_config is used by the jenkins_slave plugin to
         # transfer files from the master to the slave
@@ -163,20 +160,20 @@ def bootstrap_jenkins_slave_centos7():
         install_python_pypy('2.6.1')
 
 
-def bootstrap_jenkins_slave_ubuntu14():
+def bootstrap_jenkins_slave_ubuntu14(config, instance):
     # ec2 hosts get their ip addresses using dhcp, we need to know the new
     # ip address of our box before we continue our provisioning tasks.
     # we load the state from disk, and store the ip in ec2_host#
-    ec2_host = "%s@%s" % (env.config['username'],
-                          env.config['public_dns_name'])
 
-    cloud, region, distro, k = cloud_region_distro_config()
+    cloud_host = "%s@%s" % (config['username'], instance.public_dns_name)
+    distro = instance.distro
 
-    with settings(host_string=ec2_host, key_filename=k['key_filename']):
+    with settings(host_string=cloud_host,
+                  key_filename=config['public_key_filename']):
         install_os_updates(distribution='ubuntu14.04')
         # we want to be running the latest kernel
         upgrade_kernel_and_grub(do_reboot=True)
-        wait_for_ssh(env.config['public_dns_name'])
+        wait_for_ssh(instance.public_dns_name)
 
         enable_apt_repositories('deb',
                                 'http://archive.ubuntu.com/ubuntu',
@@ -184,7 +181,7 @@ def bootstrap_jenkins_slave_ubuntu14():
                                 'main universe restricted multiverse')
 
         # make sure our umask is set to 022
-        fix_umask()
+        fix_umask(config)
 
         # ttys are tricky, lets make sure we don't need them
         disable_requiretty_on_sudoers()
@@ -205,11 +202,11 @@ def bootstrap_jenkins_slave_ubuntu14():
         # we create a docker group ourselves, as we want to be part
         # of that group when the daemon first starts.
         create_docker_group()
-        add_user_to_docker_group()
+        add_user_to_docker_group(distro)
         install_docker()
 
         # ubuntu uses dash which causes jenkins jobs to fail
-        symlink_sh_to_bash()
+        symlink_sh_to_bash(distro)
 
         # some flocker acceptance tests fail when we don't have
         # a know_hosts file
@@ -257,7 +254,7 @@ def bootstrap_jenkins_slave_ubuntu14():
         # nginx is used during the acceptance tests, the VM built by
         # flocker provision will connect to the jenkins slave on p 80
         # and retrieve the just generated rpm/deb file
-        install_nginx()
+        install_nginx(config['username'])
 
         # /etc/slave_config is used by the jenkins_slave plugin to
         # transfer files from the master to the slave

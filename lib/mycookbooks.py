@@ -50,11 +50,11 @@ from bookshelf.api_v2.rackspace import (
 )
 
 
-def add_user_to_docker_group():
+def add_user_to_docker_group(distro):
     """ make sure the user running jenkins is part of the docker group """
     log_green('adding the user running jenkins into the docker group')
 
-    cloud, region, distro, k = cloud_region_distro_config()
+    #cloud, region, distro, k = cloud_region_distro_config()
 
     with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                   warn_only=True, capture=True):
@@ -132,7 +132,7 @@ def rackspace():
     f_rackspace()
 
 
-def fix_umask():
+def fix_umask(config):
     """ Sets umask to 022
 
     fix an issue with the the build package process where it fails, due
@@ -149,13 +149,13 @@ def fix_umask():
             'UMASK.*', 'UMASK  022',
             use_sudo=True)
 
-        cloud, region, distro, k = cloud_region_distro_config()
+        #cloud, region, distro, k = cloud_region_distro_config()
 
-        homedir = '/home/' + k['username'] + '/'
+        homedir = '/home/' + config['username'] + '/'
         for f in [homedir + '.bash_profile',
                   homedir + '.bashrc']:
             file_append(filename=f, text='umask 022')
-            file_attribs(f, mode=750, owner=k['username'])
+            file_attribs(f, mode=750, owner=config['username'])
 
 
 def get_cloud_environment():
@@ -180,7 +180,7 @@ def install_docker():
     sudo('curl -sSL https://get.docker.com/ | sh')
 
 
-def install_nginx():
+def install_nginx(username):
     """ installs nginx
 
         nginx is used for the packaging process.
@@ -190,14 +190,14 @@ def install_nginx():
         install the package during the acceptance tests.
     """
 
-    cloud, region, distro, k = cloud_region_distro_config()
-    if 'centos' in k['username']:
+    #cloud, region, distro, k = cloud_region_distro_config()
+    if 'centos' in username:
         yum_install(packages=['nginx'])
         systemd('nginx', start=False, unmask=True)
         systemd('nginx', start=True, unmask=True)
         enable_firewalld_service()
         add_firewalld_port('80/tcp', permanent=True)
-    if 'ubuntu' in k['username']:
+    if 'ubuntu' in username:
         sudo('apt-get -y install nginx')
         # systemd('nginx', start=False, unmask=True)
         # systemd('nginx', start=True, unmask=True)
@@ -221,7 +221,7 @@ def segredos():
     return secrets
 
 
-def symlink_sh_to_bash():
+def symlink_sh_to_bash(distro):
     """ Forces /bin/sh to point to /bin/bash
 
     jenkins seems to default to /bin/dash instead of bash
@@ -230,7 +230,7 @@ def symlink_sh_to_bash():
     using bash, let's symlink /bin/sh -> /bin/bash
     """
     # read distribution from state file
-    cloud, region, distro, k = cloud_region_distro_config()
+    #cloud, region, distro, k = cloud_region_distro_config()
     if 'ubuntu' in distro.lower():
         sudo('/bin/rm /bin/sh')
         sudo('/bin/ln -s /bin/bash /bin/sh')
@@ -295,7 +295,7 @@ def parse_config(filename):
         )
 
 
-def load_config():
+def setup_fab_env():
     # Modify some global Fabric behaviours:
     # Let's disable known_hosts, since on Clouds that behaviour can get in the
     # way as we continuosly destroy/create boxes.
@@ -306,121 +306,112 @@ def load_config():
 
     # initialise some keys
     env.config = {}
-    env.state = False
 
     # slurp the yaml config file
-    try:
-        env.global_config = parse_config('config.yaml')['clouds']
-    except:
-        raise("Unable to parse config.yaml, see README")
+    # try:
+    #     env.global_config = parse_config('config.yaml')['clouds']
+    # except:
+    #     raise("Unable to parse config.yaml, see README")
 
-    # look up our state.json file, and override any settings found
-    load_state_from_disk()
+    # # look up our state.json file, and override any settings found
+    # load_state_from_disk()
 
+
+def has_state():
+    return os.path.isfile('.state.json')
+
+def load_state():
+    with open('.state.json') as data_file:
+        return json.load(data_file)
 
 def load_state_from_disk():
     """ loads state.json file into fabric.env """
-    if os.path.isfile('.state.json'):
+    if has_state():
         env.state = True
         with open('.state.json') as data_file:
             env.config = json.load(data_file)
 
 
-def create_new_vm():
-    """ creates a new VM when one doesn't exist """
+# def create_new_vm(cloud, distro, config):
+#     """ creates a new VM when one doesn't exist """
 
-    cloud, region, distro, k = cloud_region_distro_config()
+#     #cloud, region, distro, k = cloud_region_distro_config()
 
-    k = env.global_config[cloud]['regions'][region]['distribution'][distro]
+#     #k = env.global_config[cloud]['regions'][region]['distribution'][distro]
 
-    connect_to_cloud_provider()
+#     connect_to_cloud_provider()
 
-    if cloud in ['ec2']:
-        instance = create_server_ec2(
-            connection=env.connection,
-            region=region,
-            disk_name=k['disk_name'],
-            disk_size=k['disk_size'],
-            ami=k['ami'],
-            key_pair=k['key_pair'],
-            instance_type=k['instance_type'],
-            tags=k['tags'],
-            security_groups=k['security_groups']
-        )
+#     if cloud in ['ec2']:
+#         instance = create_server_ec2(
+#             connection=env.connection,
+#             region=config['region'],
+#             disk_name=config['disk_name'],
+#             disk_size=config['disk_size'],
+#             ami=config['ami'],
+#             key_pair=config['key_pair'],
+#             instance_type=config['instance_type'],
+#             tags=config['tags'],
+#             security_groups=config['security_groups']
+#         )
 
-        env.config['public_dns_name'] = instance.public_dns_name
+#         env.config['public_dns_name'] = instance.public_dns_name
 
-    if cloud in ['rackspace']:
-        instance = create_server_rackspace(
-            connection=env.connection,
-            distribution=distro,
-            disk_name=k['disk_name'],
-            disk_size=k['disk_size'],
-            ami=k['ami'],
-            region=region,
-            key_pair=k['key_pair'],
-            instance_type=k['instance_type'],
-            instance_name=k['instance_name'],
-            tags=k['tags'],
-            security_groups=k['security_groups']
-        )
-        env.config['public_dns_name'] = instance.accessIPv4
+#     if cloud in ['rackspace']:
+#         instance = create_server_rackspace(
+#             connection=env.connection,
+#             distribution=distro,
+#             disk_name=config['disk_name'],
+#             disk_size=config['disk_size'],
+#             ami=config['ami'],
+#             region=config['region'],
+#             key_pair=config['key_pair'],
+#             instance_type=config['instance_type'],
+#             instance_name=config['instance_name'],
+#             tags=config['tags'],
+#             security_groups=config['security_groups']
+#         )
+#         env.config['public_dns_name'] = instance.accessIPv4
 
-    if cloud == 'gce':
-        f_up(cloud='gce',
-             project=k['project'],
-             zone=region,
-             username=k['username'],
-             machine_type=k['machine_type'],
-             base_image_prefix=k['base_image_prefix'],
-             base_image_project=k['base_image_project'],
-             public_key=k['public_key'],
-             instance_name=k['instance_name'],
-             disk_name=k['instance_name'])
-
-        print(instance.__dict__)
-        env.config['public_dns_name'] = instance.public_dns_name
-
-    env.config['instance_id'] = instance.id
-    env.config['username'] = k['username']
-    with open('.state.json', 'w') as f:
-        f.write(
-            json.dumps(env.config)
-        )
+#     env.config['instance_id'] = instance.id
+#     env.config['username'] = config['username']
+#     with open('.state.json', 'w') as f:
+#         f.write(
+#             json.dumps(env.config)
+#         )
 
 
-def cloud_region_distro_config():
-    """ returns tuple of :
-        cloud, region, distro
-        and slice of the dictionary from the config.yaml file
-        corresponding to the cloud,region,distro
-    """
-    load_state_from_disk()
+# def cloud_region_distro_config():
+#     """ returns tuple of :
+#         cloud, region, distro
+#         and slice of the dictionary from the config.yaml file
+#         corresponding to the cloud,region,distro
+#     """
+#     load_state_from_disk()
 
-    cloud = env.config['cloud']
-    region = env.config['region']
-    distro = env.config['distribution']
-    return (
-        cloud,
-        region,
-        distro,
-        env.global_config[cloud]['regions'][region]['distribution'][distro]
-    )
+#     cloud = env.config['cloud']
+#     region = env.config['region']
+#     distro = env.config['distribution']
+#     return (
+#         cloud,
+#         region,
+#         distro,
+#         env.global_config[cloud]['regions'][region]['distribution'][distro]
+#     )
 
 
-def connect_to_cloud_provider():
+def connect_to_cloud_provider(cloud, config):
     """ stores a connection handle on fabric.env.connection """
     if 'connection' not in env:
-        cloud, region, distro, k = cloud_region_distro_config()
+        #cloud, region, distro, k = cloud_region_distro_config()
         if 'ec2' in cloud:
             env.connection = connect_to_ec2(
-                region=region,
-                access_key_id=k['access_key_id'],
-                secret_access_key=k['secret_access_key']
+                region=config['region'],
+                access_key_id=config['access_key_id'],
+                secret_access_key=config['secret_access_key']
             )
         if 'rackspace' in cloud:
             env.connection = connect_to_rackspace(
-                region=region,
-                access_key_id=k['access_key_id'],
-                secret_access_key=k['secret_access_key']
+                region=config['region'],
+                access_key_id=config['access_key_id'],
+                secret_access_key=config['secret_access_key']
             )
