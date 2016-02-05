@@ -12,6 +12,7 @@ import json
 from datetime import datetime
 from fabric.api import task, env
 from pprint import PrettyPrinter
+import sys
 
 from bookshelf.api_v1 import (up as f_up,
                               down as f_down,
@@ -32,14 +33,14 @@ from bookshelf.api_v2.rackspace import (
 
 from bookshelf.api_v2.logging_helpers import log_green, log_red
 from bookshelf.api_v3.gce import GCE
-from bookshelf.api_v1 import (ssh_session, create_gce_image)
+from bookshelf.api_v3.rackspace import Rackspace
+from bookshelf.api_v1 import ssh_session
 
 from lib.mycookbooks import (setup_fab_env,
                              parse_config,
                              has_state,
                              load_state,
-                             save_state,
-                             connect_to_cloud_provider)
+                             save_state)
 
 
 from lib.bootstrap import (bootstrap_jenkins_slave_centos7,
@@ -53,7 +54,6 @@ CLOUD_YAML_FILE = {
     'ec2': 'ec2.yaml',
     'rackspace': 'rackspace.yaml'
 }
-
 
 
 @task(default=True)
@@ -132,7 +132,6 @@ def help():
           """)
 
 
-
 def get_config():
     if not has_state():
         raise Exception("Can't get a config without a state file")
@@ -142,30 +141,47 @@ def get_config():
     return config
 
 
-def create_new_instance_from_config(cloud, distro):
+def create_new_instance_from_config(cloud, distro, region):
     config = parse_config(CLOUD_YAML_FILE[cloud])
+    env.user = config['username']
+    env.key_filename = config['private_key_filename']
     if cloud == 'ec2':
-        pass
+        raise NotImplementedError("ec2 is not implemented yet")
     elif cloud == 'rackspace':
-        pass
+        return Rackspace.create_from_config(config, distro, region)
     elif cloud == 'gce':
-        env.user = config['username']
-        env.key_filename = config['private_key_filename']
-        return GCE.create_from_config(config, distro)
+        return GCE.create_from_config(config, distro, region)
 
 
 def create_instance_from_saved_state():
     saved_state = load_state()
     cloud = saved_state['cloud']
+    if 'cloud' in env.config and env.config['cloud']:
+        if cloud != env.config['cloud']:
+            log_red("The specified cloud: {} does not match the cloud "
+                    "specified in the saved state file: {}".format(
+                        env.config['cloud'], cloud))
+            sys.exit(1)
+
     config = parse_config(CLOUD_YAML_FILE[cloud])
-    if cloud == 'gce':
-        env.user = config['username']
-        env.key_filename = config['private_key_filename']
+    env.user = config['username']
+    env.key_filename = config['private_key_filename']
+
+    instance = None
+    if cloud == 'ec2':
+        raise NotImplementedError("ec2 is not implemented yet")
+    elif cloud == 'rackspace':
+        instance = Rackspace.create_from_saved_state(
+            config,saved_state['data']
+        )
+    elif cloud == 'gce':
         instance = GCE.create_from_saved_state(config, saved_state['data'])
-        # bringing the instance up can change the IP address
-        # go ahead and re-save the state
-        save_state(instance)
-        return instance
+    else:
+        raise RuntimeError("unknown cloud type {}".format(cloud))
+    # bringing the instance up can change the IP address
+    # go ahead and re-save the state
+    save_state(instance)
+    return instance
 
 
 @task
@@ -183,27 +199,6 @@ def create_image():
 @task
 def destroy():
     """ destroy an existing instance """
-    # cloud, region, distro, k = cloud_region_distro_config()
-    # connect_to_cloud_provider()
-
-    # if cloud == 'ec2':
-    #     destroy_ec2(connection=env.connection,
-    #                 region=region,
-    #                 instance_id=env.config['instance_id'])
-    #     os.unlink('.state.json')
-
-    # if cloud == 'rackspace':
-    #     destroy_rackspace(connection=env.connection,
-    #                       region=region,
-    #                       instance_id=env.config['instance_id'])
-    #     os.unlink('.state.json')
-
-    # if cloud == 'gce':
-    #     f_destroy(cloud='gce',
-    #               zone=k['region'],
-    #               project=k['project'],
-    #               disk_name=env.config['instance_name'])
-    #     os.unlink('.state.json')
 
     instance = create_instance_from_saved_state()
     instance.destroy()
@@ -215,20 +210,6 @@ def down():
     instance = create_instance_from_saved_state()
     instance.down()
 
-    # cloud, region, distro, k = cloud_region_distro_config()
-    # connect_to_cloud_provider()
-
-    # if cloud == 'ec2':
-    #     down_ec2(connection=env.connection,
-    #              instance_id=env.config['instance_id'],
-    #              region=region)
-
-    # if cloud == 'rackspace':
-    #     # rackspace doesn't provide a 'stop' method, it always terminates
-    #     # the instance.
-    #     destroy()
-
-
 
 @task
 def bootstrap():
@@ -236,16 +217,8 @@ def bootstrap():
 
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
-
-    #cloud, region, distro, k = cloud_region_distro_config()
-
-    #config, state = get_config_and_state()
     config = get_config()
     instance = create_instance_from_saved_state()
-
-    # distro = state['distro']
-    # env.user = config['username']
-
 
     if 'centos7' in instance.distro:
         bootstrap_jenkins_slave_centos7(config, instance)
@@ -289,7 +262,7 @@ def ssh(*cli):
 def tests():
     """ run tests against an existing instance """
     config = get_config()
-
+    state = load_state()
     acceptance_tests(state['distro'], config)
 
 
@@ -299,14 +272,18 @@ def up():
     """
     boots a new instance on the specified cloud provider
     """
+    # XXX: if the saved state doesn't agree with our environment vars,
+    # throw an exception and tell the user to remove the saved state
     cloud = env.config['cloud']
     distro = env.config['distribution']
+    region = env.config['region']
 
     if not has_state():
-        instance = create_new_instance_from_config(cloud, distro)
+        instance = create_new_instance_from_config(cloud, distro, region)
     else:
         instance = create_instance_from_saved_state()
     save_state(instance)
+
 
 @task
 def cloud(cloud_provider):

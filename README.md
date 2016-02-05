@@ -29,26 +29,27 @@ For EC2:
 For Rackspace:
 
 
-    * RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
+    * RACKSPACE_KEY_PAIR (the name of the rackspace KEY_PAIR to
+      use. If you have not uploaded a key pair to rackspace, your
+      public_key_filename will be uploaded to rackspace)
 
-    * RACKSPACE_KEY_FILENAME (the full path to your .pem file)
+    * PUBLIC_KEY_FILENAME (path to your public key)
 
-    * OS_USERNAME
+    * PRIVATE_KEY_FILENAME (path to your public key)
 
-    * OS_TENANT_NAME
+    * OS_USERNAME (your rackspace username. e.g. patton.oswalt)
 
-    * OS_PASSWORD
+    * OS_TENANT_NAME (your rackspace account number)
 
-    * OS_AUTH_URL
+    * OS_PASSWORD (your rackspace secret access key)
 
-    * OS_AUTH_SYSTEM
+    * OS_AUTH_URL (e.g. https://identity.api.rackspacecloud.com/v2.0/)
 
-    * OS_REGION_NAME
-
-    * OS_NO_CACHE
+    * OS_AUTH_SYSTEM (probably "rackspace")
 
 
 For Google Compute Engine:
+
 
     * GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
 

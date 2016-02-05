@@ -3,21 +3,21 @@
 # zone: <%= ENV['GCE_ZONE'] %>
 # public_key_filename: <%= ENV['GCE_PUBLIC_KEY'] %>
 # private_key_filename: <%= ENV['GCE_PRIVATE_KEY'] %>
+#zone: us-central1-f
 project: clusterhq-acceptance
-zone: us-central1-f
 public_key_filename: /home/bcox/.ssh/id_rsa.pub
 private_key_filename: /home/bcox/.ssh/id_rsa
 machine_type: 'n1-standard-2'
 username: 'ci-slave-image-preper'
 
 ubuntu1404:
-  description: 'jenkins-slave-ubuntu1404-ondemand'
-  instance_name: 'jenkins-slave-ubuntu1404-ondemand'
+  description: 'jenkins-slave-ubuntu14'
+  instance_name: 'jenkins-slave-ubuntu14'
   base_image_prefix: 'ubuntu-1404'
   base_image_project: 'ubuntu-os-cloud'
 
 centos7:
-  description: 'jenkins-slave-centos7-ondemand'
-  instance_name: 'jenkins-slave-centos7-ondemand'
+  description: 'jenkins-slave-centos7'
+  instance_name: 'jenkins-slave-centos7'
   base_image_prefix: 'centos-7'
   base_image_project: 'centos-cloud'

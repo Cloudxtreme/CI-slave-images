@@ -45,7 +45,7 @@ def bootstrap_jenkins_slave_centos7(config, instance):
     # ec2 hosts get their ip addresses using dhcp, we need to know the new
     # ip address of our box before we continue our provisioning tasks.
     # we load the state from disk, and store the ip in ec2_host#
-    cloud_host = "%s@%s" % (config['username'], instance.public_dns_name)
+    cloud_host = "%s@%s" % (config['username'], instance.ip_address)
     distro = instance.distro
     with settings(host_string=cloud_host,
                   key_filename=config['public_key_filename']):
@@ -78,7 +78,7 @@ def bootstrap_jenkins_slave_centos7(config, instance):
         # so, lets reboot and make sure we do.
         with settings(warn_only=True):
             reboot()
-        wait_for_ssh(instance.public_dns_name)
+        wait_for_ssh(instance.ip_address)
 
         # install the latest ZFS from testing
         add_zfs_yum_repository()
@@ -89,7 +89,7 @@ def bootstrap_jenkins_slave_centos7(config, instance):
 
         # note: will reboot the host for us if selinux is disabled
         enable_selinux()
-        wait_for_ssh(instance.public_dns_name)
+        wait_for_ssh(instance.ip_address)
 
     # these are likely to happen after a reboot
 
@@ -165,7 +165,7 @@ def bootstrap_jenkins_slave_ubuntu14(config, instance):
     # ip address of our box before we continue our provisioning tasks.
     # we load the state from disk, and store the ip in ec2_host#
 
-    cloud_host = "%s@%s" % (config['username'], instance.public_dns_name)
+    cloud_host = "%s@%s" % (config['username'], instance.ip_address)
     distro = instance.distro
 
     with settings(host_string=cloud_host,
@@ -173,7 +173,7 @@ def bootstrap_jenkins_slave_ubuntu14(config, instance):
         install_os_updates(distribution='ubuntu14.04')
         # we want to be running the latest kernel
         upgrade_kernel_and_grub(do_reboot=True)
-        wait_for_ssh(instance.public_dns_name)
+        wait_for_ssh(instance.ip_address)
 
         enable_apt_repositories('deb',
                                 'http://archive.ubuntu.com/ubuntu',
