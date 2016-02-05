@@ -8,30 +8,13 @@
 
 
 import os
-import json
 from datetime import datetime
 from fabric.api import task, env
 from pprint import PrettyPrinter
 import sys
 
-from bookshelf.api_v1 import (up as f_up,
-                              down as f_down,
-                              destroy as f_destroy)
 
-
-from bookshelf.api_v2.ec2 import (
-    up_ec2,
-    down_ec2,
-    destroy_ec2,
-    create_ami
-)
-
-from bookshelf.api_v2.rackspace import (
-    create_rackspace_image,
-    destroy_rackspace
-)
-
-from bookshelf.api_v1 import (ssh_session, create_gce_image)
+from bookshelf.api_v1 import ssh_session
 from bookshelf.api_v2.logging_helpers import log_green, log_red
 
 from bookshelf.api_v3.cloud_instance import Distribution
@@ -134,6 +117,7 @@ def help():
         config.yaml contains a list of default configuration parameters.
           """)
 
+
 def get_config():
     if not has_state():
         raise Exception("Can't get a config without a state file")
@@ -205,7 +189,7 @@ def create_instance_from_saved_state():
 
     specified_distribution = env.config.get('distribution')
     if (specified_distribution and
-        specified_distribution != instance.distro.value):
+            specified_distribution != instance.distro.value):
         log_red("The specified distribution: {} does not match the distro "
                 "specified in the saved state file: {}".format(
                     specified_distribution, instance.distro.value))
@@ -247,7 +231,6 @@ def down():
 @task
 def bootstrap():
     """ bootstraps an existing running instance """
-    config = get_config()
     instance = create_instance_from_saved_state()
 
     if instance.distro == Distribution.CENTOS7:
