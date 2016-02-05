@@ -41,18 +41,18 @@ from lib.mycookbooks import (symlink_sh_to_bash,
                              install_nginx)
 
 
-def bootstrap_jenkins_slave_centos7(config, instance):
+def bootstrap_jenkins_slave_centos7(instance):
     # ec2 hosts get their ip addresses using dhcp, we need to know the new
     # ip address of our box before we continue our provisioning tasks.
     # we load the state from disk, and store the ip in ec2_host#
-    cloud_host = "%s@%s" % (config['username'], instance.ip_address)
+    cloud_host = "%s@%s" % (instance.username, instance.ip_address)
     distro = instance.distro
     with settings(host_string=cloud_host,
-                  key_filename=config['public_key_filename']):
+                  key_filename=instance.key_filename):
         install_os_updates(distribution='centos7')
 
         # make sure our umask is set to 022
-        fix_umask(config)
+        fix_umask(instance.username)
 
         # ttys are tricky, lets make sure we don't need them
         disable_requiretty_on_sudoers()
@@ -94,7 +94,7 @@ def bootstrap_jenkins_slave_centos7(config, instance):
     # these are likely to happen after a reboot
 
     with settings(host_string=cloud_host,
-                  key_filename=config['public_key_filename']):
+                  key_filename=instance.public_key):
         # brings up the firewall
         enable_firewalld_service()
 
@@ -149,7 +149,7 @@ def bootstrap_jenkins_slave_centos7(config, instance):
         # nginx is used during the acceptance tests, the VM built by
         # flocker provision will connect to the jenkins slave on p 80
         # and retrieve the just generated rpm/deb file
-        install_nginx(config['username'])
+        install_nginx(instance.username)
 
         # /etc/slave_config is used by the jenkins_slave plugin to
         # transfer files from the master to the slave
@@ -160,16 +160,16 @@ def bootstrap_jenkins_slave_centos7(config, instance):
         install_python_pypy('2.6.1')
 
 
-def bootstrap_jenkins_slave_ubuntu14(config, instance):
+def bootstrap_jenkins_slave_ubuntu14(instance):
     # ec2 hosts get their ip addresses using dhcp, we need to know the new
     # ip address of our box before we continue our provisioning tasks.
     # we load the state from disk, and store the ip in ec2_host#
 
-    cloud_host = "%s@%s" % (config['username'], instance.ip_address)
+    cloud_host = "%s@%s" % (instance.username, instance.ip_address)
     distro = instance.distro
 
     with settings(host_string=cloud_host,
-                  key_filename=config['public_key_filename']):
+                  key_filename=instance.key_filename):
         install_os_updates(distribution='ubuntu14.04')
         # we want to be running the latest kernel
         upgrade_kernel_and_grub(do_reboot=True)
@@ -181,7 +181,7 @@ def bootstrap_jenkins_slave_ubuntu14(config, instance):
                                 'main universe restricted multiverse')
 
         # make sure our umask is set to 022
-        fix_umask(config)
+        fix_umask(instance.username)
 
         # ttys are tricky, lets make sure we don't need them
         disable_requiretty_on_sudoers()
@@ -254,7 +254,7 @@ def bootstrap_jenkins_slave_ubuntu14(config, instance):
         # nginx is used during the acceptance tests, the VM built by
         # flocker provision will connect to the jenkins slave on p 80
         # and retrieve the just generated rpm/deb file
-        install_nginx(config['username'])
+        install_nginx(instance.username)
 
         # /etc/slave_config is used by the jenkins_slave plugin to
         # transfer files from the master to the slave

@@ -1,0 +1,63 @@
+
+
+credentials:
+  access_key_id: <%= ENV['AWS_ACCESS_KEY_ID'] %>
+  secret_access_key: <%= ENV['AWS_SECRET_ACCESS_KEY'] %>
+
+key_filename: <%= ENV['AWS_KEY_FILENAME'] %>
+key_pair: <%= ENV['AWS_KEY_PAIR'] %>
+security_groups: ['ssh']
+
+distros:
+  centos7:
+    username: 'centos'
+    instance_name: 'jenkins_slave_centos7_ondemand'
+    image_description: 'jenkins_slave_centos7_ondemand'
+    tags: {'name': 'jenkins_slave_centos7_ondemand'}
+    amis:
+      us-east-1: 'ami-61bbf104'
+      eu-central-1: 'ami-e68f82fb'
+      ap-southeast-1: 'ami-2a7b6b78'
+      ap-northeast-1: 'ami-b80b6db8'
+      ap-southeast-2: 'ami-d38dc6e9'
+      sa-east-1: 'ami-fd0197e0'
+      us-west-1: 'ami-f77fbeb3'
+      us-west-2: 'ami-d440a6e7'
+  ubuntu1404:
+    username: 'ubuntu'
+    instance_name: 'jenkins_slave_ubuntu1404_ondemand'
+    image_description: 'jenkins_slave_ubuntu1404_ondemand'
+    tags: {'name': 'jenkins_slave_ubuntu1404_ondemand'}
+    amis:
+      us-east-1: 'ami-ffe3c695'
+      eu-central-1: 'ami-86564fea'
+      ap-southeast-1: 'ami-7ac30f19'
+      ap-northeast-1: 'ami-0419256a'
+      ap-southeast-2: 'ami-520b2e31'
+      sa-east-1: 'ami-a0b637cc'
+      us-west-1: 'ami-34126654'
+      us-west-2: 'ami-22b9a343'
+
+disk_name: '/dev/sda1'
+disk_size: '48'
+instance_type: 't2.medium'
+
+#
+#distros:
+#  centos7:
+#    instance_name: 'jenkins_slave_centos7_ondemand'
+#    username: 'centos'
+#
+#  ubuntu1404:
+#    amis:
+#      us-east-1: 'ami-ffe3c695'
+#      eu-central-1: 'ami-86564fea'
+#      ap-southeast-1: 'ami-7ac30f19'
+#      ap-northeast-1: 'ami-0419256a'
+#      ap-southeast-2: 'ami-520b2e31'
+#      sa-east-1: 'ami-a0b637cc'
+#      us-west-1: 'ami-34126654'
+#      us-west-2: 'ami-22b9a343'
+#    instance_name: 'jenkins_slave_ubuntu1404_ondemand'
+#    tags: {'name': 'jenkins_slave_ubuntu1404_ondemand'}
+#    username: 'ubuntu'
