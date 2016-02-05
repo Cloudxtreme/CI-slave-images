@@ -39,11 +39,6 @@ from bookshelf.api_v1 import (rackspace as f_rackspace,
                               up as f_up,
                               gce as f_gce)
 
-from bookshelf.api_v2.ec2 import (
-    create_server_ec2,
-    connect_to_ec2,
-)
-
 from bookshelf.api_v2.rackspace import (
     create_server_rackspace,
     connect_to_rackspace,
@@ -54,16 +49,14 @@ def add_user_to_docker_group(distro):
     """ make sure the user running jenkins is part of the docker group """
     log_green('adding the user running jenkins into the docker group')
 
-    #cloud, region, distro, k = cloud_region_distro_config()
-
     with settings(hide('warnings', 'running', 'stdout', 'stderr'),
                   warn_only=True, capture=True):
-        if 'centos' in distro:
+        if 'centos' in distro.value:
             user_ensure('centos', home='/home/centos', shell='/bin/bash')
             group_ensure('docker', gid=55)
             group_user_ensure('docker', 'centos')
 
-        if 'ubuntu' in distro:
+        if 'ubuntu' in distro.value:
             user_ensure('ubuntu', home='/home/ubuntu', shell='/bin/bash')
             group_ensure('docker', gid=55)
             group_user_ensure('docker', 'ubuntu')
@@ -132,7 +125,7 @@ def rackspace():
     f_rackspace()
 
 
-def fix_umask(config):
+def fix_umask(username):
     """ Sets umask to 022
 
     fix an issue with the the build package process where it fails, due
@@ -149,13 +142,11 @@ def fix_umask(config):
             'UMASK.*', 'UMASK  022',
             use_sudo=True)
 
-        #cloud, region, distro, k = cloud_region_distro_config()
-
-        homedir = '/home/' + config['username'] + '/'
+        homedir = '/home/' + username + '/'
         for f in [homedir + '.bash_profile',
                   homedir + '.bashrc']:
             file_append(filename=f, text='umask 022')
-            file_attribs(f, mode=750, owner=config['username'])
+            file_attribs(f, mode=750, owner=username)
 
 
 def get_cloud_environment():
@@ -190,7 +181,6 @@ def install_nginx(username):
         install the package during the acceptance tests.
     """
 
-    #cloud, region, distro, k = cloud_region_distro_config()
     if 'centos' in username:
         yum_install(packages=['nginx'])
         systemd('nginx', start=False, unmask=True)
@@ -231,7 +221,7 @@ def symlink_sh_to_bash(distro):
     """
     # read distribution from state file
     #cloud, region, distro, k = cloud_region_distro_config()
-    if 'ubuntu' in distro.lower():
+    if 'ubuntu' in distro.value.lower():
         sudo('/bin/rm /bin/sh')
         sudo('/bin/ln -s /bin/bash /bin/sh')
 
@@ -318,18 +308,26 @@ def setup_fab_env():
 
 
 def has_state():
-    return os.path.isfile('.state.json')
+    if not os.path.isfile('.state.json'):
+        return False;
+    try:
+        with open('.state.json') as data_file:
+            json.load(data_file)
+    except ValueError:
+        return False
+    return True
+
+
 
 def load_state():
     with open('.state.json') as data_file:
         return json.load(data_file)
 
-def load_state_from_disk():
-    """ loads state.json file into fabric.env """
-    if has_state():
-        env.state = True
-        with open('.state.json') as data_file:
-            env.config = json.load(data_file)
+
+def save_state(state):
+    with open('.state.json', "w") as data_file:
+        json.dump(state, data_file)
+
 
 
 # def create_new_vm(cloud, distro, config):
@@ -402,7 +400,6 @@ def load_state_from_disk():
 def connect_to_cloud_provider(cloud, config):
     """ stores a connection handle on fabric.env.connection """
     if 'connection' not in env:
-        #cloud, region, distro, k = cloud_region_distro_config()
         if 'ec2' in cloud:
             env.connection = connect_to_ec2(
                 region=config['region'],

@@ -31,12 +31,15 @@ from bookshelf.api_v2.rackspace import (
 
 from bookshelf.api_v2.logging_helpers import log_green, log_red
 from bookshelf.api_v3.gce import GCE
+from bookshelf.api_v3.ec2 import EC2
+from bookshelf.api_v3.cloud_instance import Distribution
 from bookshelf.api_v1 import (ssh_session, create_gce_image)
 
 from lib.mycookbooks import (setup_fab_env,
                              parse_config,
                              has_state,
                              load_state,
+                             save_state,
                              connect_to_cloud_provider)
 
 
@@ -128,8 +131,6 @@ def help():
         config.yaml contains a list of default configuration parameters.
           """)
 
-
-
 def get_config():
     if not has_state():
         raise Exception("Can't get a config without a state file")
@@ -138,25 +139,60 @@ def get_config():
     config = parse_config(CLOUD_YAML_FILE[cloud])
     return config
 
-def create_new_intance_from_config(cloud, distro):
-    config = parse_config(CLOUD_YAML_FILE[cloud])
+
+def _get_cloud_instance_factory(cloud):
     if cloud == 'ec2':
-        pass
+        return EC2
     elif cloud == 'rackspace':
-        pass
+        raise NotImplementedError('rackspace cloud not implemented.')
     elif cloud == 'gce':
-        env.user = config['username']
-        env.key_filename = config['public_key_filename']
-        return GCE.create_from_config(config, distro)
+        return GCE
+    else:
+        raise KeyError('Unknown cloud %s' % cloud)
+
+
+def _setup_fab_for_instance(instance):
+    log_green('Setting fab environment to work with instance.')
+    env.user = instance.username
+    env.key_filename = instance.key_filename
+
+
+def _save_state_from_instance(instance):
+    state = {
+        'cloud_type': instance.cloud_type,
+        'state': instance.get_state()
+    }
+    save_state(state)
+
+
+def create_new_intance_from_config(cloud, distro, region):
+    cloud_instance_factory = _get_cloud_instance_factory(cloud)
+    config = parse_config(CLOUD_YAML_FILE[cloud])
+
+    log_green('Creating an instance from configuration...')
+    instance = cloud_instance_factory.create_from_config(
+        config, distro, region)
+    log_green('...Done')
+
+    _setup_fab_for_instance(instance)
+    _save_state_from_instance(instance)
+    return instance
+
 
 def create_instance_from_saved_state():
     saved_state = load_state()
     cloud = saved_state['cloud_type']
+    instance_factory = _get_cloud_instance_factory(cloud)
     config = parse_config(CLOUD_YAML_FILE[cloud])
-    if cloud == 'gce':
-        env.user = config['username']
-        env.key_filename = config['public_key_filename']
-        return GCE.create_from_saved_state(config, saved_state)
+
+    log_green('Reusing instance from saved state...')
+    instance = instance_factory.create_from_saved_state(
+        config, saved_state['state'])
+    log_green('...Done')
+
+    _setup_fab_for_instance(instance)
+    _save_state_from_instance(instance)
+    return instance
 
 
 @task
@@ -188,11 +224,11 @@ def create_image():
     #                      instance_name=k['instance_name'] + date,
     #                      name=k['description'])
     datestr = datetime.utcnow().strftime("%Y%m%d%H%M")
-    instance = create_from_saved_state()
-    image_name = "{}-{}".format(instance.description, datestr)
-    instance.create_image(image_name)
+    instance = create_instance_from_saved_state()
+    image_name = "{}-{}".format(instance.name, datestr)
+    image_id = instance.create_image(image_name)
 
-    log_green('created server image: %s' % image_name)
+    log_green('created server image: %s' % image_id)
 
 
 @task
@@ -220,14 +256,14 @@ def destroy():
     #               disk_name=env.config['instance_name'])
     #     os.unlink('.state.json')
 
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
     instance.destroy()
     os.unlink('.state.json')
 
 @task
 def down():
     """ halt an existing instance """
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
     instance.down()
 
     # cloud, region, distro, k = cloud_region_distro_config()
@@ -256,17 +292,17 @@ def bootstrap():
 
     #config, state = get_config_and_state()
     config = get_config()
-    instance = create_from_saved_state()
+    instance = create_instance_from_saved_state()
 
     # distro = state['distro']
     # env.user = config['username']
 
 
-    if 'centos7' in instance.distro:
-        bootstrap_jenkins_slave_centos7(config, instance)
+    if instance.distro == Distribution.CENTOS7:
+        bootstrap_jenkins_slave_centos7(instance)
 
-    if 'ubuntu14' in instance.distro:
-        bootstrap_jenkins_slave_ubuntu14(config, instance)
+    if instance.distro == Distribution.UBUNTU1404:
+        bootstrap_jenkins_slave_ubuntu14(instance)
 
 
 @task
@@ -288,24 +324,20 @@ def ssh(*cli):
 
     :param string cli: the commands to run on the host
     """
-    #config, state = get_config_and_state()
-    config = get_config()
+    instance = create_instance_from_saved_state()
 
-    instance = create_from_saved_state()
-
-    ssh_session(key_filename=config['public_key_filename'],
-                username=config['username'],
-                ip_address=instance.ip_address,
+    ssh_session(key_filename=instance.key_filename,
+                username=instance.username,
+                ip_address=instance.public_dns_name,
                 *cli)
 
 
 @task
 def tests():
     """ run tests against an existing instance """
-    config = get_config()
+    instance = create_instance_from_saved_state()
 
-    acceptance_tests(state['distro'], config)
-
+    acceptance_tests(instance)
 
 
 @task
@@ -313,13 +345,13 @@ def up():
     """
     boots a new instance on the specified cloud provider
     """
-    cloud = env.config['cloud']
-    distro = env.config['distribution']
-
     if not has_state():
-        create_from_config(cloud, distro)
+        cloud = env.config['cloud']
+        distro = Distribution(env.config['distribution'])
+        region = env.config['region']
+        create_new_intance_from_config(cloud, distro, region)
     else:
-        create_from_saved_state()
+        create_instance_from_saved_state()
 
 
 @task

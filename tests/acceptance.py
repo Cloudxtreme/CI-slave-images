@@ -22,18 +22,18 @@ from lib.bootstrap import (local_docker_images,
 #from lib.mycookbooks import cloud_region_distro_config
 
 
-def acceptance_tests(distribution, config):
+def acceptance_tests(instance):
     """ proxy function that calls acceptance tests for speficic OS
 
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
+    distribution = instance.distro.value
 
-    ec2_host = "%s@%s" % (env.config['username'],
-                          env.config['public_dns_name'])
+    ec2_host = "%s@%s" % (instance.username,
+                          instance.public_dns_name)
 
-    #cloud, region, distro, k = cloud_region_distro_config()
     env.host_string = ec2_host
-    env.key_filename = config['key_filename']
+    env.key_filename = instance.key_filename
 
     # run common tests for all platforms
     acceptance_tests_common_tests_for_flocker(distribution)
