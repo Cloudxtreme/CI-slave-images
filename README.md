@@ -33,9 +33,9 @@ For Rackspace:
       use. If you have not uploaded a key pair to rackspace, your
       public_key_filename will be uploaded to rackspace)
 
-    * PUBLIC_KEY_FILENAME (path to your public key)
+    * RACKSPACE_PUBLIC_KEY_FILENAME (path to your public key)
 
-    * PRIVATE_KEY_FILENAME (path to your public key)
+    * RACKSPACE_PRIVATE_KEY_FILENAME (path to your public key)
 
     * OS_USERNAME (your rackspace username. e.g. patton.oswalt)
 
@@ -50,6 +50,9 @@ For Rackspace:
 
 For Google Compute Engine:
 
+    * GCE_CREDENTIALS_PRIVATE_KEY (private key for the GCE service account)
+
+    * GCE_CREDENTIALS_EMAIL (email/id of the GCE service account)
 
     * GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
 
@@ -57,10 +60,6 @@ For Google Compute Engine:
 
     * GCE_PROJECT (The GCE project to create the image in)
 
-    * GCE_ZONE (The GCE zone to use to make the image)
-
-    * GCE_MACHINE_TYPE (The machine type to use to make the image, defaults to
-                        n1-standard-2)
 
 
 

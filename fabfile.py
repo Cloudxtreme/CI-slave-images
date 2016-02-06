@@ -173,7 +173,7 @@ def create_instance_from_saved_state():
     if specified_cloud and specified_cloud != cloud:
         log_red("The specified cloud: {} does not match the cloud "
                 "specified in the saved state file: {}".format(
-                    env.config['cloud'], cloud))
+                    specified_cloud, cloud))
         sys.exit(1)
 
     config = parse_config(CLOUD_YAML_FILE[cloud])

@@ -1,12 +1,8 @@
-# fab cloud:gce distribution:centos7 up
-# project: <%= ENV['GCE_PROJECT'] %>
-# zone: <%= ENV['GCE_ZONE'] %>
-# public_key_filename: <%= ENV['GCE_PUBLIC_KEY'] %>
-# private_key_filename: <%= ENV['GCE_PRIVATE_KEY'] %>
-#zone: us-central1-f
-project: clusterhq-acceptance
-public_key_filename: /home/bcox/.ssh/id_rsa.pub
-private_key_filename: /home/bcox/.ssh/id_rsa
+credentials_private_key: <%= ENV['GCE_CREDENTIALS_PRIVATE_KEY'] %>
+credentials_email: <%= ENV['GCE_CREDENTIALS_EMAIL'] %>
+public_key_filename: <%= ENV['GCE_PUBLIC_KEY'] %>
+private_key_filename: <%= ENV['GCE_PRIVATE_KEY'] %>
+project: <%= ENV['GCE_PROJECT'] %>
 machine_type: 'n1-standard-2'
 username: 'ci-slave-image-preper'
 
