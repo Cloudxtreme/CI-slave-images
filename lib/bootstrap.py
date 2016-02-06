@@ -1,7 +1,7 @@
 # vim: ai ts=4 sts=4 et sw=4 ft=python fdm=indent et foldlevel=0
 
 
-from fabric.api import sudo, env, run
+from fabric.api import sudo, run
 from fabric.context_managers import settings, cd
 from bookshelf.api_v1 import (add_epel_yum_repository,
                               add_usr_local_bin_to_path,
@@ -94,7 +94,7 @@ def bootstrap_jenkins_slave_centos7(instance):
     # these are likely to happen after a reboot
 
     with settings(host_string=cloud_host,
-                  key_filename=instance.public_key):
+                  key_filename=instance.key_filename):
         # brings up the firewall
         enable_firewalld_service()
 
