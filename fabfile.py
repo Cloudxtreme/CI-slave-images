@@ -261,7 +261,7 @@ def ssh(*cli):
 
     ssh_session(key_filename=instance.key_filename,
                 username=instance.username,
-                ip_address=instance.public_dns_name,
+                ip_address=instance.ip_address,
                 *cli)
 
 
