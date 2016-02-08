@@ -1,22 +1,37 @@
-username: 'root'
-disk_name: ''
-disk_size: '48'
-instance_type: '1GB Standard Instance'
-key_pair: <%= ENV['RACKSPACE_KEY_PAIR'] %>
-public_key_filename: <%= ENV['RACKSPACE_PUBLIC_KEY_FILENAME'] %>
-private_key_filename: <%= ENV['RACKSPACE_KEY_FILENAME'] %>
-access_key_id: <%= ENV['OS_USERNAME'] %>
-secret_access_key: <%= ENV['OS_PASSWORD'] %>
-auth_system: <%= ENV['OS_AUTH_SYSTEM'] %>
-auth_auth_url: <%= ENV['OS_AUTH_URL'] %>
-tenant: <%= ENV['OS_TENANT_NAME'] %>
+templates:
+  common: &rackspace_common
+    username: 'root'
+    disk_name: ''
+    disk_size: '48'
+    instance_type: '1GB Standard Instance'
+    key_pair: <%= ENV['RACKSPACE_KEY_PAIR'] %>
+    public_key_filename: <%= ENV['RACKSPACE_PUBLIC_KEY_FILENAME'] %>
+    private_key_filename: <%= ENV['RACKSPACE_KEY_FILENAME'] %>
+    access_key_id: <%= ENV['OS_USERNAME'] %>
+    secret_access_key: <%= ENV['OS_PASSWORD'] %>
+    auth_system: <%= ENV['OS_AUTH_SYSTEM'] %>
+    auth_auth_url: <%= ENV['OS_AUTH_URL'] %>
+    tenant: <%= ENV['OS_TENANT_NAME'] %>
 
-ubuntu1404:
-  ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
-  description: 'jenkins-slave-ubuntu14'
-  instance_name: 'jenkins-slave-ubuntu14'
+  centos7_common: &centos7_common
+    ami: 'CentOS 7 (PVHVM)'
+    description: 'jenkins-slave-centos7-ondemand'
+    instance_name: 'jenkins-slave-centos7-ondemand'
 
-centos7:
-  ami: 'CentOS 7 (PVHVM)'
-  description: 'jenkins-slave-centos7-ondemand'
-  instance_name: 'jenkins-slave-centos7-ondemand'
+  ubuntu1404_common: &ubuntu1404_common
+    ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
+    description: 'jenkins-slave-ubuntu14'
+    instance_name: 'jenkins-slave-ubuntu14'
+
+
+
+configs:
+  regions:
+    default:
+      distribution:
+        centos7:
+          <<: *rackspace_common
+          <<: *centos7_common
+        ubuntu1404:
+          <<: *rackspace_common
+          <<: *ubuntu1404_common

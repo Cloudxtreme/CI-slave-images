@@ -147,18 +147,44 @@ def _setup_fab_for_instance(instance):
 def _save_state_from_instance(instance):
     state = {
         'cloud': instance.cloud_type,
+        'region': instance.region,
+        'distro': instance.distro.value,
         'state': instance.get_state()
     }
     save_state(state)
 
 
+def _get_platform_config(cloud, region, distro):
+    config = parse_config(CLOUD_YAML_FILE[cloud])
+
+    import pdb; pdb.set_trace()
+
+    # Get the configurations for all of the regions.
+    region_configs = config['configs']['regions']
+
+    # Get the region-specific configurations.
+    region_config = region_configs.get(region)
+    if not region_config:
+        region_config = region_configs['default']
+
+    # Get the different configurations for distributions in this region.
+    instance_configs = region_config['distribution']
+
+    # Get the specific configuration for this distribution in this region.
+    instance_config = instance_configs.get(distro.value)
+    if not instance_config:
+        instance_config = instance_configs['default']
+
+    return instance_config
+
+
 def create_new_intance_from_config(cloud, distro, region):
     cloud_instance_factory = _get_cloud_instance_factory(cloud)
-    config = parse_config(CLOUD_YAML_FILE[cloud])
 
     log_green('Creating an instance from configuration...')
     instance = cloud_instance_factory.create_from_config(
-        config, distro, region)
+        _get_platform_config(cloud, region, distro),
+        distro, region)
     log_green('...Done')
 
     _setup_fab_for_instance(instance)
@@ -176,7 +202,10 @@ def create_instance_from_saved_state():
                     specified_cloud, cloud))
         sys.exit(1)
 
-    config = parse_config(CLOUD_YAML_FILE[cloud])
+    distro = Distribution(saved_state['distro'])
+    region = saved_state['region']
+
+    config = _get_platform_config(cloud, region, distro)
 
     log_green('Reusing instance from saved state...')
     instance_factory = _get_cloud_instance_factory(cloud)
