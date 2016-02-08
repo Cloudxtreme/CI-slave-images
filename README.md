@@ -16,7 +16,6 @@ export the following environment variables:
 
 For EC2:
 
-
     * AWS_KEY_PAIR (the KEY_PAIR to use)
 
     * AWS_KEY_FILENAME (the full path to your .pem file)
@@ -27,7 +26,6 @@ For EC2:
 
 
 For Rackspace:
-
 
     * RACKSPACE_KEY_PAIR (the name of the rackspace KEY_PAIR to
       use. If you have not uploaded a key pair to rackspace, your
@@ -50,18 +48,28 @@ For Rackspace:
 
 For Google Compute Engine:
 
-    * GCE_CREDENTIALS_PRIVATE_KEY (private key for the GCE service account)
+    GCE can support two authentication mechanisms.  For provisioning
+    locally, you'll want to use gcloud's authetication: `gcloud auth
+    login`.  This will bring up a browser page where you can login to
+    GCE using your google credentials.  Alternatively for scripts and
+    applications (e.g. jenkins) you can use a service account to
+    authenticate.  This'll require populating
+    GCE_CREDENTIALS_PRIVATE_KEY (replace \n with real newlines) and
+    GCE_CREDENTIALS_EMAIL environment variables.  These come from
+    creating a public/private key pair for the service account within
+    GCE.
 
-    * GCE_CREDENTIALS_EMAIL (email/id of the GCE service account)
+    * GCE_CREDENTIALS_PRIVATE_KEY (optional, private key for the GCE
+      				  service account)
+
+    * GCE_CREDENTIALS_EMAIL (optional, email/id of the GCE service
+      			    account)
 
     * GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
 
     * GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
 
     * GCE_PROJECT (The GCE project to create the image in)
-
-
-
 
 
 create your virtualenv:
