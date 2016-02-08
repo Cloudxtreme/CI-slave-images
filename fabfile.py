@@ -157,8 +157,6 @@ def _save_state_from_instance(instance):
 def _get_platform_config(cloud, region, distro):
     config = parse_config(CLOUD_YAML_FILE[cloud])
 
-    import pdb; pdb.set_trace()
-
     # Get the configurations for all of the regions.
     region_configs = config['configs']['regions']
 
