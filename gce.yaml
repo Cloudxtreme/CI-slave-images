@@ -10,14 +10,16 @@ templates:
     username: 'ci-slave-image-preper'
 
   centos7_common: &centos7_common
-    description: 'jenkins-slave-centos7'
+    description: 'jenkins-slave-centos7-ondemand'
     instance_name: 'jenkins-slave-centos7'
+    image_basename: 'jenkins-slave-centos7'
     base_image_prefix: 'centos-7'
     base_image_project: 'centos-cloud'
 
   ubuntu1404_common: &ubuntu1404_common
-    description: 'jenkins-slave-ubuntu14'
+    description: 'jenkins-slave-ubuntu14-ondemand'
     instance_name: 'jenkins-slave-ubuntu14'
+    image_basename: 'jenkins-slave-ubuntu14'
     base_image_prefix: 'ubuntu-1404'
     base_image_project: 'ubuntu-os-cloud'
 

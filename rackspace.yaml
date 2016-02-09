@@ -16,11 +16,13 @@ templates:
   centos7_common: &centos7_common
     ami: 'CentOS 7 (PVHVM)'
     description: 'jenkins-slave-centos7-ondemand'
-    instance_name: 'jenkins-slave-centos7-ondemand'
+    image_basename: 'jenkins-slave-centos7'
+    instance_name: 'jenkins-slave-centos7'
 
   ubuntu1404_common: &ubuntu1404_common
     ami: 'Ubuntu 14.04 LTS (Trusty Tahr) (PVHVM)'
-    description: 'jenkins-slave-ubuntu14'
+    description: 'jenkins-slave-ubuntu14-ondemand'
+    image_basename: 'jenkins-slave-ubuntu14'
     instance_name: 'jenkins-slave-ubuntu14'
 
 

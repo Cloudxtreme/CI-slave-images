@@ -229,7 +229,7 @@ def create_image():
     """ create ami/image for either AWS, Rackspace or GCE """
     datestr = datetime.utcnow().strftime("%Y%m%d%H%M")
     instance = create_instance_from_saved_state()
-    image_name = "{}-{}".format(instance.name, datestr)
+    image_name = "{}-{}".format(instance.image_basename, datestr)
     image_id = instance.create_image(image_name)
     log_green('Created server image: %s' % image_id)
 

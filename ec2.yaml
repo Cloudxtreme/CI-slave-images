@@ -16,13 +16,15 @@ templates:
     username: 'centos'
     instance_name: 'jenkins_slave_centos7_ondemand'
     image_description: 'jenkins_slave_centos7_ondemand'
+    image_basename: 'jenkins_slave_centos7'
     tags: {'name': 'jenkins_slave_centos7_ondemand'}
 
   ubuntu1404_common: &ubuntu1404_common
-    username: 'centos'
-    instance_name: 'jenkins_slave_centos7_ondemand'
-    image_description: 'jenkins_slave_centos7_ondemand'
-    tags: {'name': 'jenkins_slave_centos7_ondemand'}
+    username: 'ubuntu'
+    instance_name: 'jenkins_slave_ubuntu14_ondemand'
+    image_description: 'jenkins_slave_ubuntu14_ondemand'
+    image_basename: 'jenkins_slave_centos7'
+    tags: {'name': 'jenkins_slave_ubuntu14_ondemand'}
 
 
 

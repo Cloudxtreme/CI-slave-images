@@ -30,7 +30,7 @@ def acceptance_tests(instance):
     distribution = instance.distro.value
 
     ec2_host = "%s@%s" % (instance.username,
-                          instance.public_dns_name)
+                          instance.ip_address)
 
     env.host_string = ec2_host
     env.key_filename = instance.key_filename
@@ -136,7 +136,7 @@ def acceptance_tests_common_tests_for_flocker(distribution):
 
         # the client acceptance tests run on docker instances
         log_green('check that docker is running')
-        assert sudo('docker --version | grep "1.9."')
+        assert sudo('docker --version | grep "1.10."')
         assert process.is_up("docker")
 
 
@@ -212,7 +212,7 @@ def acceptance_tests_on_centos7_img_for_flocker(distribution):
 
         # the client acceptance tests run on docker instances
         log_green('check that docker is running')
-        assert sudo('rpm -q docker-engine | grep "1.9."')
+        assert sudo('rpm -q docker-engine | grep "1.10."')
         assert process.is_up("docker")
         assert sudo("systemctl is-enabled docker")
 
