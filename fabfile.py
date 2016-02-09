@@ -18,9 +18,9 @@ from bookshelf.api_v1 import ssh_session
 from bookshelf.api_v2.logging_helpers import log_green, log_red
 
 from bookshelf.api_v3.cloud_instance import Distribution
-from bookshelf.api_v3.ec2 import EC2
-from bookshelf.api_v3.gce import GCE
-from bookshelf.api_v3.rackspace import Rackspace
+from bookshelf.api_v3.ec2 import EC2Instance
+from bookshelf.api_v3.gce import GCEInstance
+from bookshelf.api_v3.rackspace import RackspaceInstance
 
 from lib.mycookbooks import (setup_fab_env,
                              parse_config,
@@ -63,10 +63,16 @@ def help():
         # creates a new ami
         $ fab create_image
 
+        # list our images on the cloud provider
+        $ fab list_images
+
+        # delete a specific image from the cloud provider
+        $ fab delete_image:ami-636c8d03
+
         # destroy the box
         $ fab destroy
 
-        # power down the box
+        # power down the box (not supported on rackspace)
         $ fab down
 
         # ssh to the instance
@@ -90,31 +96,31 @@ def help():
         # AWS_ACCESS_REGION (optional)
         # AWS_AMI (optional)
         # AWS_INSTANCE_TYPE (optional)
+        ec2.yaml contains provisioning and configuration parameter
 
         For Rackspace:
         http://docs.rackspace.com/servers/api/v2/cs-gettingstarted/content/gs_env_vars_summary.html
 
         # OS_USERNAME
-        # OS_TENANT_NAME
         # OS_PASSWORD
-        # OS_NO_CACHE
-        # RACKSPACE_KEY_PAIR (the KEY_PAIR to use)
-        # RACKSPACE_KEY_FILENAME (the full path to your private key file)
-        # OS_AUTH_SYSTEM (optional)
-        # OS_AUTH_URL (optional)
-        # OS_REGION_NAME (optional)
+        # RACKSPACE_KEY_PAIR (the name of the rackspace KEY_PAIR to use)
+        # RACKSPACE_PUBLIC_KEY_FILENAME (the full path to your public key file)
+        # RACKSPACE_PRIVATE_KEY_FILENAME (the full path to your private key file)
+        rackspace.yaml contains provisioning and configuration parameter
 
         For Google Compute Engine (GCE):
+
+        # GCE_CREDENTIALS_PRIVATE_KEY (private key for the GCE service account
+               or "" to use your oauth2 creds)
+        # GCE_CREDENTIALS_EMAIL (email/id of the GCE service
+      			     account or "" to use your oauth2 creds)
         # GCE_PUBLIC_KEY (Absolute file path to a public ssh key to use)
         # GCE_PRIVATE_KEY (Absolute file path to a private ssh key to use)
         # GCE_PROJECT (The GCE project to create the image in)
-        # GCE_ZONE (The GCE zone to use to make the image)
-        # GCE_MACHINE_TYPE (The machine type to use to make the image,
-            defaults to n1-standard-2)
+        gce.yaml contains provisioning and configuration parameter
 
         Metadata state is stored locally in .state.json.
 
-        config.yaml contains a list of default configuration parameters.
           """)
 
 
@@ -129,11 +135,11 @@ def get_config():
 
 def _get_cloud_instance_factory(cloud):
     if cloud == 'ec2':
-        return EC2
+        return EC2Instance
     elif cloud == 'rackspace':
-        return Rackspace
+        return RackspaceInstance
     elif cloud == 'gce':
-        return GCE
+        return GCEInstance
     else:
         raise KeyError('Unknown cloud %s' % cloud)
 
@@ -231,7 +237,7 @@ def create_image():
     instance = create_instance_from_saved_state()
     image_name = "{}-{}".format(instance.image_basename, datestr)
     image_id = instance.create_image(image_name)
-    log_green('Created server image: %s' % image_id)
+    log_green('Created server image {}: {}'.format(image_name, image_id))
 
     # GCE shuts the instance down before creating an image. In the case where
     # the instance comes back up with a different IP address, we need to
@@ -290,6 +296,20 @@ def ssh(*cli):
                 username=instance.username,
                 ip_address=instance.ip_address,
                 *cli)
+
+
+@task
+def list_images():
+    """ List images for the cloud provider """
+    instance = create_instance_from_saved_state()
+    instance.list_images()
+
+
+@task
+def delete_image(image_id):
+    """ Delete an image. Todo, don't use an instance """
+    instance = create_instance_from_saved_state()
+    instance.delete_image(image_id)
 
 
 @task
