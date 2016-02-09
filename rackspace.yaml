@@ -1,8 +1,6 @@
 templates:
   common: &rackspace_common
     username: 'root'
-    disk_name: ''
-    disk_size: '48'
     instance_type: '1GB Standard Instance'
     key_pair: <%= ENV['RACKSPACE_KEY_PAIR'] %>
     public_key_filename: <%= ENV['RACKSPACE_PUBLIC_KEY_FILENAME'] %>
