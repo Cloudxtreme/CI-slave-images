@@ -7,9 +7,6 @@ templates:
     private_key_filename: <%= ENV['RACKSPACE_KEY_FILENAME'] %>
     access_key_id: <%= ENV['OS_USERNAME'] %>
     secret_access_key: <%= ENV['OS_PASSWORD'] %>
-    auth_system: <%= ENV['OS_AUTH_SYSTEM'] %>
-    auth_auth_url: <%= ENV['OS_AUTH_URL'] %>
-    tenant: <%= ENV['OS_TENANT_NAME'] %>
 
   centos7_common: &centos7_common
     ami: 'CentOS 7 (PVHVM)'
