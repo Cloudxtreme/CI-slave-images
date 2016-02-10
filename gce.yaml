@@ -1,0 +1,35 @@
+
+templates:
+  common: &gce_common
+    credentials_private_key: <%= ENV['GCE_CREDENTIALS_PRIVATE_KEY'] %>
+    credentials_email: <%= ENV['GCE_CREDENTIALS_EMAIL'] %>
+    public_key_filename: <%= ENV['GCE_PUBLIC_KEY'] %>
+    private_key_filename: <%= ENV['GCE_PRIVATE_KEY'] %>
+    project: <%= ENV['GCE_PROJECT'] %>
+    machine_type: 'n1-standard-2'
+    username: 'ci-slave-image-preper'
+
+  centos7_common: &centos7_common
+    description: 'jenkins-slave-centos7-ondemand'
+    instance_name: 'jenkins-slave-centos7'
+    image_basename: 'jenkins-slave-centos7'
+    base_image_prefix: 'centos-7'
+    base_image_project: 'centos-cloud'
+
+  ubuntu1404_common: &ubuntu1404_common
+    description: 'jenkins-slave-ubuntu14-ondemand'
+    instance_name: 'jenkins-slave-ubuntu14'
+    image_basename: 'jenkins-slave-ubuntu14'
+    base_image_prefix: 'ubuntu-1404'
+    base_image_project: 'ubuntu-os-cloud'
+
+configs:
+  regions:
+    default:
+      distribution:
+        centos7:
+          <<: *gce_common
+          <<: *centos7_common
+        ubuntu1404:
+          <<: *gce_common
+          <<: *ubuntu1404_common

@@ -19,21 +19,21 @@ from lib.bootstrap import (local_docker_images,
                            ubuntu14_required_packages,
                            centos7_required_packages)
 
-from lib.mycookbooks import cloud_region_distro_config
+#from lib.mycookbooks import cloud_region_distro_config
 
 
-def acceptance_tests(distribution):
+def acceptance_tests(instance):
     """ proxy function that calls acceptance tests for speficic OS
 
     :param string distribution: which OS to use 'centos7', 'ubuntu1404'
     """
+    distribution = instance.distro.value
 
-    ec2_host = "%s@%s" % (env.config['username'],
-                          env.config['public_dns_name'])
+    ec2_host = "%s@%s" % (instance.username,
+                          instance.ip_address)
 
-    cloud, region, distro, k = cloud_region_distro_config()
     env.host_string = ec2_host
-    env.key_filename = k['key_filename']
+    env.key_filename = instance.key_filename
 
     # run common tests for all platforms
     acceptance_tests_common_tests_for_flocker(distribution)
@@ -136,7 +136,7 @@ def acceptance_tests_common_tests_for_flocker(distribution):
 
         # the client acceptance tests run on docker instances
         log_green('check that docker is running')
-        assert sudo('docker --version | grep "1.9."')
+        assert sudo('docker --version | grep "1.10."')
         assert process.is_up("docker")
 
 
@@ -212,7 +212,7 @@ def acceptance_tests_on_centos7_img_for_flocker(distribution):
 
         # the client acceptance tests run on docker instances
         log_green('check that docker is running')
-        assert sudo('rpm -q docker-engine | grep "1.9."')
+        assert sudo('rpm -q docker-engine | grep "1.10."')
         assert process.is_up("docker")
         assert sudo("systemctl is-enabled docker")
 
