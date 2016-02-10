@@ -56,41 +56,6 @@ def add_user_to_docker_group(distro):
             group_user_ensure('docker', 'ubuntu')
 
 
-def check_for_missing_environment_variables(cloud_type=None):
-    """ checks for required environment variables
-
-    Double checks that the minimum environment variables have been
-    configured correctly.
-
-    :param string cloud_type: The cloud type to use 'ec2', 'rackspace'
-    """
-    if not cloud_type:
-        cloud_type = []
-
-    cloud_vars = {'ec2': ['AWS_KEY_PAIR',
-                          'AWS_KEY_FILENAME',
-                          'AWS_SECRET_ACCESS_KEY',
-                          'AWS_ACCESS_KEY_ID'],
-
-                  'rackspace': [
-                      'OS_USERNAME',
-                      'OS_PASSWORD',
-                      'OS_AUTH_URL',
-                      'OS_AUTH_SYSTEM',
-                      'OS_REGION_NAME',
-                      'RACKSPACE_KEY_PAIR',
-                      'RACKSPACE_KEY_FILENAME',
-                  ],
-
-                  'gce': ['GCE_PUBLIC_KEY'],
-                  }
-
-    for cloud in cloud_type:
-        if not set(cloud_vars[cloud]).issubset(set(os.environ)):
-            return False
-    return True
-
-
 def create_etc_slave_config():
     """ creates /etc/slave_config directory on master
 
