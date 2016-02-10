@@ -21,10 +21,10 @@ templates:
 
   ubuntu1404_common: &ubuntu1404_common
     username: 'ubuntu'
-    instance_name: 'jenkins_slave_ubuntu14_ondemand'
-    image_description: 'jenkins_slave_ubuntu14_ondemand'
-    image_basename: 'jenkins_slave_centos7'
-    tags: {'name': 'jenkins_slave_ubuntu14_ondemand'}
+    instance_name: 'jenkins_slave_ubuntu1404_ondemand'
+    image_description: 'jenkins_slave_ubuntu1404_ondemand'
+    image_basename: 'jenkins_slave_ubuntu1404'
+    tags: {'name': 'jenkins_slave_ubuntu1404_ondemand'}
 
 
 
